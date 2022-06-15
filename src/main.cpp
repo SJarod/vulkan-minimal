@@ -15,6 +15,7 @@ const bool enableValidationLayers = true;
 #endif
 
 VkInstance instance;
+VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
 int vulkanInit()
 {
@@ -89,13 +90,63 @@ void vulkanLayers()
 		std::cout << '\t' << layer.layerName << '\n';
 }
 
+bool isDeviceSuitable(VkPhysicalDevice device)
+{
+	VkPhysicalDeviceProperties deviceProperties;
+	VkPhysicalDeviceFeatures deviceFeatures;
+	vkGetPhysicalDeviceProperties(device, &deviceProperties);
+	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+	return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+		deviceFeatures.geometryShader;
+}
+
+int vulkanPhysicalDevice()
+{
+	uint32_t deviceCount = 0;
+	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+	if (deviceCount == 0)
+	{
+		std::cerr << "Failed to find GPUs with Vulkan support\n";
+		return -1;
+	}
+	std::vector<VkPhysicalDevice> devices(deviceCount);
+	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+	std::cout << "available devices : " << deviceCount << '\n';
+
+	for (const auto& device : devices)
+	{
+		VkPhysicalDeviceProperties properties;
+		vkGetPhysicalDeviceProperties(device, &properties);
+		std::cout << '\t' << properties.deviceName << '\n';
+	}
+
+	//select the first available device
+	for (const auto& device : devices)
+	{
+		if (isDeviceSuitable(device))
+		{
+			physicalDevice = device;
+			break;
+		}
+	}
+	if (physicalDevice == VK_NULL_HANDLE)
+	{
+		std::cerr << "Failed to find a suitable GPU\n";
+		return -2;
+	}
+}
+
 int main()
 {
 	glfwInit();
+
 	if (vulkanInit() < 0) return -1;
 	if (vulkanCreate() < 0) return -2;
 	vulkanExtensions();
 	vulkanLayers();
+	if (vulkanPhysicalDevice() < 0) return -3;
+
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
