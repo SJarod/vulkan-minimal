@@ -29,11 +29,13 @@ using VkQueueFamilyIndex = std::optional<uint32_t>;
  */
 VkQueueFamilyIndex findQueueFamilies(VkPhysicalDevice pdevice);
 int vulkanLogicalDevice();
+int vulkanSurface(GLFWwindow* window);
 
 VkInstance instance;
 VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 VkDevice device;
 VkQueue graphicsQueue;
+VkSurfaceKHR surface;
 
 int vulkanInit()
 {
@@ -56,6 +58,7 @@ int vulkanInit()
 void vulkanDestroy()
 {
 	vkDestroyDevice(device, nullptr);
+	vkDestroySurfaceKHR(instance, surface, nullptr);
 	vkDestroyInstance(instance, nullptr);
 }
 
@@ -233,6 +236,17 @@ int vulkanLogicalDevice()
 	return 0;
 }
 
+int vulkanSurface(GLFWwindow* window)
+{
+	if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
+	{
+		std::cerr << "Failed to create window surface\n";
+		return -1;
+	}
+
+	return 0;
+}
+
 int main()
 {
 	glfwInit();
@@ -244,9 +258,10 @@ int main()
 	if (vulkanPhysicalDevice() < 0) return -3;
 	if (vulkanLogicalDevice() < 0) return -4;
 
-
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
+
+	if (vulkanSurface(window) < 0) return -5;
 
 	while (!glfwWindowShouldClose(window))
 	{
