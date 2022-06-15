@@ -2,6 +2,8 @@
 #include <GLFW/glfw3.h>
 
 #include <vector>
+#include <optional>
+
 #include <iostream>
 
 const std::vector<const char*> validationLayers = {
@@ -13,6 +15,15 @@ const bool enableValidationLayers = false;
 #else
 const bool enableValidationLayers = true;
 #endif
+
+int vulkanInit();
+int vulkanCreate();
+void vulkanExtensions();
+void vulkanLayers();
+bool isDeviceSuitable(VkPhysicalDevice device);
+int vulkanPhysicalDevice();
+using VkQueueFamilyIndex = std::optional<uint32_t>;
+VkQueueFamilyIndex findQueueFamilies(VkPhysicalDevice device);
 
 VkInstance instance;
 VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -92,13 +103,18 @@ void vulkanLayers()
 
 bool isDeviceSuitable(VkPhysicalDevice device)
 {
-	VkPhysicalDeviceProperties deviceProperties;
-	VkPhysicalDeviceFeatures deviceFeatures;
-	vkGetPhysicalDeviceProperties(device, &deviceProperties);
-	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+	//checks to tell if the device can do the given tasks
 
-	return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-		deviceFeatures.geometryShader;
+	//VkPhysicalDeviceProperties deviceProperties;
+	//VkPhysicalDeviceFeatures deviceFeatures;
+	//vkGetPhysicalDeviceProperties(device, &deviceProperties);
+	//vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+	//return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+	//	deviceFeatures.geometryShader;
+
+	VkQueueFamilyIndex index = findQueueFamilies(device);
+	return index.has_value();
 }
 
 int vulkanPhysicalDevice()
@@ -135,6 +151,26 @@ int vulkanPhysicalDevice()
 		std::cerr << "Failed to find a suitable GPU\n";
 		return -2;
 	}
+}
+
+VkQueueFamilyIndex findQueueFamilies(VkPhysicalDevice device)
+{
+	VkQueueFamilyIndex index;
+
+	uint32_t queueFamilyCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+	for (int i = 0; i < queueFamilies.size(); ++i)
+	{
+		if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+		{
+			index = i;
+			break;
+		}
+	}
+
+	return index;
 }
 
 int main()
