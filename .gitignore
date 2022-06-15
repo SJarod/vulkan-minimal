@@ -1,0 +1,8 @@
+.vs
+out
+
+[Bb]uild
+
+*.zip
+*.rar
+*.7z
