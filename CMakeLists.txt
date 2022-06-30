@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 project(vulkan-tutorial)
 
-add_subdirectory(vendors)
+add_subdirectory(externals)
 
 add_executable(vk src/main.cpp)
 target_include_directories(vk PRIVATE include)
