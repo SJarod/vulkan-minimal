@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <optional>
+#include <set>
 
 #include <iostream>
 
@@ -45,6 +46,7 @@ VkSurfaceKHR surface;
 VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 VkDevice device;
 VkQueue graphicsQueue;
+VkQueue presentQueue;
 
 int vulkanInit()
 {
@@ -214,23 +216,27 @@ int vulkanLogicalDevice()
 {
 	VkQueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
-	float queuePriority = 1.f;
-	VkDeviceQueueCreateInfo queueCreateInfo = {
-		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = indices.graphicsFamily.value(),
-		.queueCount = 1,
-		.pQueuePriorities = &queuePriority
-	};
+	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
-	VkPhysicalDeviceFeatures deviceFeatures = {};
+	float queuePriority = 1.f;
+	for (uint32_t queueFamily : uniqueQueueFamilies)
+	{
+		VkDeviceQueueCreateInfo queueCreateInfo = {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = queueFamily,
+			.queueCount = 1,
+			.pQueuePriorities = &queuePriority
+		};
+		queueCreateInfos.push_back(queueCreateInfo);
+	}
 
 	VkDeviceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		.queueCreateInfoCount = 1,
-		.pQueueCreateInfos = &queueCreateInfo,
+		.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+		.pQueueCreateInfos = queueCreateInfos.data(),
 		.enabledLayerCount = 0,
-		.enabledExtensionCount = 0,
-		.pEnabledFeatures = &deviceFeatures
+		.enabledExtensionCount = 0
 	};
 	if (enableValidationLayers)
 	{
@@ -245,6 +251,7 @@ int vulkanLogicalDevice()
 	}
 
 	vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+	vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
 	return 0;
 }
