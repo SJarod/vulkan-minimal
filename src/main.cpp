@@ -24,18 +24,27 @@ void vulkanLayers();
 bool isDeviceSuitable(VkPhysicalDevice pdevice);
 int vulkanPhysicalDevice();
 using VkQueueFamilyIndex = std::optional<uint32_t>;
+struct VkQueueFamilyIndices
+{
+	//a queue family that supports graphics commands
+	VkQueueFamilyIndex graphicsFamily;
+	//a queue family that supports presenting images to the surface
+	VkQueueFamilyIndex presentFamily;
+
+	bool isComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
+};
 /**
- * Find a queue family capable of VK_QUEUE_GRAPHICS_BIT.
+ * Find a queue family capable of VK_QUEUE_GRAPHICS_BIT and presenting images.
  */
-VkQueueFamilyIndex findQueueFamilies(VkPhysicalDevice pdevice);
+VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice);
 int vulkanLogicalDevice();
 int vulkanSurface(GLFWwindow* window);
 
 VkInstance instance;
+VkSurfaceKHR surface;
 VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 VkDevice device;
 VkQueue graphicsQueue;
-VkSurfaceKHR surface;
 
 int vulkanInit()
 {
@@ -134,8 +143,8 @@ bool isDeviceSuitable(VkPhysicalDevice pdevice)
 	return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
 		deviceFeatures.geometryShader;
 #else
-	VkQueueFamilyIndex index = findQueueFamilies(pdevice);
-	return index.has_value();
+	VkQueueFamilyIndices indices = findQueueFamilies(pdevice);
+	return indices.isComplete();
 #endif
 }
 
@@ -177,34 +186,38 @@ int vulkanPhysicalDevice()
 	return 0;
 }
 
-VkQueueFamilyIndex findQueueFamilies(VkPhysicalDevice pdevice)
+VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice)
 {
-	VkQueueFamilyIndex index;
+	VkQueueFamilyIndices indices;
 
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(pdevice, &queueFamilyCount, nullptr);
 	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(pdevice, &queueFamilyCount, queueFamilies.data());
-	for (int i = 0; i < queueFamilies.size(); ++i)
+	for (uint32_t i = 0; i < queueFamilies.size(); ++i)
 	{
+		//graphics family
 		if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-		{
-			index = i;
-			break;
-		}
+			indices.graphicsFamily = i;
+
+		//presentation family
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(pdevice, i, surface, &presentSupport);
+		if (presentSupport)
+			indices.presentFamily = i;
 	}
 
-	return index;
+	return indices;
 }
 
 int vulkanLogicalDevice()
 {
-	VkQueueFamilyIndex index = findQueueFamilies(physicalDevice);
+	VkQueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
 	float queuePriority = 1.f;
 	VkDeviceQueueCreateInfo queueCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = index.value(),
+		.queueFamilyIndex = indices.graphicsFamily.value(),
 		.queueCount = 1,
 		.pQueuePriorities = &queuePriority
 	};
@@ -231,7 +244,7 @@ int vulkanLogicalDevice()
 		return -1;
 	}
 
-	vkGetDeviceQueue(device, index.value(), 0, &graphicsQueue);
+	vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
 
 	return 0;
 }
@@ -252,16 +265,16 @@ int main()
 	glfwInit();
 
 	if (vulkanInit() < 0) return -1;
-	if (vulkanCreate() < 0) return -2;
 	vulkanExtensions();
 	vulkanLayers();
-	if (vulkanPhysicalDevice() < 0) return -3;
-	if (vulkanLogicalDevice() < 0) return -4;
+	if (vulkanCreate() < 0) return -2;
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
 
-	if (vulkanSurface(window) < 0) return -5;
+	if (vulkanSurface(window) < 0) return -3;
+	if (vulkanPhysicalDevice() < 0) return -4;
+	if (vulkanLogicalDevice() < 0) return -5;
 
 	while (!glfwWindowShouldClose(window))
 	{
