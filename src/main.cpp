@@ -11,6 +11,10 @@ const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
 
+const std::vector<const char*> deviceExtensions = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -40,6 +44,7 @@ struct VkQueueFamilyIndices
 VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice);
 int vulkanLogicalDevice();
 int vulkanSurface(GLFWwindow* window);
+bool checkDeviceExtensionSupport(VkPhysicalDevice pdevice);
 
 VkInstance instance;
 VkSurfaceKHR surface;
@@ -116,7 +121,7 @@ void vulkanExtensions()
 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 	std::vector<VkExtensionProperties> extensions(extensionCount);
 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-	std::cout << "available extensions : " << extensionCount << '\n';
+	std::cout << "available instance extensions : " << extensionCount << '\n';
 	for (const auto& extension : extensions)
 		std::cout << '\t' << extension.extensionName << '\n';
 }
@@ -146,7 +151,10 @@ bool isDeviceSuitable(VkPhysicalDevice pdevice)
 		deviceFeatures.geometryShader;
 #else
 	VkQueueFamilyIndices indices = findQueueFamilies(pdevice);
-	return indices.isComplete();
+
+	bool extensionSupport = checkDeviceExtensionSupport(pdevice);
+
+	return indices.isComplete() && extensionSupport;
 #endif
 }
 
@@ -236,7 +244,8 @@ int vulkanLogicalDevice()
 		.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
 		.pQueueCreateInfos = queueCreateInfos.data(),
 		.enabledLayerCount = 0,
-		.enabledExtensionCount = 0
+		.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
+		.ppEnabledExtensionNames = deviceExtensions.data()
 	};
 	if (enableValidationLayers)
 	{
@@ -265,6 +274,28 @@ int vulkanSurface(GLFWwindow* window)
 	}
 
 	return 0;
+}
+
+bool checkDeviceExtensionSupport(VkPhysicalDevice pdevice)
+{
+	uint32_t extensionCount = 0;
+	vkEnumerateDeviceExtensionProperties(pdevice, nullptr, &extensionCount, nullptr);
+	std::vector<VkExtensionProperties> extensions(extensionCount);
+	vkEnumerateDeviceExtensionProperties(pdevice, nullptr, &extensionCount, extensions.data());
+	std::cout << "available device extensions : " << extensionCount << '\n';
+	for (const auto& extension : extensions)
+		std::cout << '\t' << extension.extensionName << '\n';
+
+	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+	for (const VkExtensionProperties& extension : extensions)
+	{
+		//is the required extension available?
+		requiredExtensions.erase(extension.extensionName);
+	}
+
+	//are all required extensions found in the available extension list?
+	return requiredExtensions.empty();
 }
 
 int main()
