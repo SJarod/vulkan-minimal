@@ -631,6 +631,54 @@ void vulkanGraphicsPipeline()
 		.pSpecializationInfo = nullptr
 	};
 
+	std::vector<VkDynamicState> dynamicStates = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+		.pDynamicStates = dynamicStates.data()
+	};
+
+	//vertex buffer
+	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.vertexBindingDescriptionCount = 0,
+		.pVertexBindingDescriptions = nullptr,
+		.vertexAttributeDescriptionCount = 0,
+		.pVertexAttributeDescriptions = nullptr
+	};
+
+	//draw mode
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		.primitiveRestartEnable = VK_FALSE
+	};
+
+	//viewport
+	VkViewport viewport = {
+		.x = 0.f,
+		.y = 0.f,
+		.width = static_cast<float>(swapchainExtent.width),
+		.height = static_cast<float>(swapchainExtent.height),
+		.minDepth = 0.f,
+		.maxDepth = 1.f
+	};
+
+	VkRect2D scissor = {
+		.offset = { 0, 0 },
+		.extent = swapchainExtent
+	};
+
+	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.scissorCount = 1
+	};
+
 	vkDestroyShaderModule(device, vsModule, nullptr);
 	vkDestroyShaderModule(device, fsModule, nullptr);
 }
