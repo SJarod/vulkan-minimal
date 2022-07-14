@@ -7,3 +7,5 @@ target_sources(glad INTERFACE
 target_include_directories(glad INTERFACE glad/include)
 
 add_subdirectory(glfw)
+
+add_subdirectory(libraries)

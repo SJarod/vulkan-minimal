@@ -1,3 +1,6 @@
 [submodule "externals/glfw"]
 	path = externals/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "externals/libraries"]
+	path = externals/libraries
+	url = https://github.com/SJarod/libraries.git

@@ -11,4 +11,5 @@ target_include_directories(vk PRIVATE include)
 target_link_libraries(vk
 	PUBLIC glad
 	PUBLIC glfw
+	PUBLIC libraries
 )
