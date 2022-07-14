@@ -19,26 +19,31 @@
 
 #undef vkGetSwapchainImagesKHR;
 
-VkResult (*vkCreateDebugUtilsMessengerEXT)(VkInstance instance,
+VkResult (*FCT_vkCreateDebugUtilsMessengerEXT)(VkInstance instance,
 	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 	const VkAllocationCallbacks* pAllocator,
 	VkDebugUtilsMessengerEXT* pDebugMessenger);
-void (*vkDestroyDebugUtilsMessengerEXT)(VkInstance instance,
+#define vkCreateDebugUtilsMessengerEXT FCT_vkCreateDebugUtilsMessengerEXT
+void (*FCT_vkDestroyDebugUtilsMessengerEXT)(VkInstance instance,
 	VkDebugUtilsMessengerEXT messenger,
 	const VkAllocationCallbacks* pAllocator);
+#define vkDestroyDebugUtilsMessengerEXT FCT_vkDestroyDebugUtilsMessengerEXT
 
-VkResult (*vkCreateSwapchainKHR)(VkDevice device,
+VkResult (*FCT_vkCreateSwapchainKHR)(VkDevice device,
 	const VkSwapchainCreateInfoKHR* pCreateInfo,
 	const VkAllocationCallbacks* pAllocator,
 	VkSwapchainKHR* pSwapchain);
-void (*vkDestroySwapchainKHR)(VkDevice device,
+#define vkCreateSwapchainKHR FCT_vkCreateSwapchainKHR
+void (*FCT_vkDestroySwapchainKHR)(VkDevice device,
 	VkSwapchainKHR swapchain,
 	const VkAllocationCallbacks* pAllocator);
+#define vkDestroySwapchainKHR FCT_vkDestroySwapchainKHR
 
-VkResult (*vkGetSwapchainImagesKHR)(VkDevice device,
+VkResult (*FCT_vkGetSwapchainImagesKHR)(VkDevice device,
 	VkSwapchainKHR swapchain,
 	uint32_t* pSwapchainImageCount,
 	VkImage* pSwapchainImages);
+#define vkGetSwapchainImagesKHR FCT_vkGetSwapchainImagesKHR
 
 #ifndef NDEBUG
 const std::vector<const char*> validationLayers = {
@@ -96,6 +101,7 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>
 VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availableModes);
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 int vulkanSwapchain();
+int vulkanImageViews();
 
 GLFWwindow* window;
 VkInstance instance;
@@ -109,6 +115,7 @@ VkSwapchainKHR swapchain;
 std::vector<VkImage> swapchainImages;
 VkFormat swapchainImageFormat;
 VkExtent2D swapchainExtent;
+std::vector<VkImageView> swapchainImageViews;
 
 int vulkanInit()
 {
@@ -130,6 +137,10 @@ int vulkanInit()
 
 void vulkanDestroy()
 {
+	for (VkImageView& imageView : swapchainImageViews)
+	{
+		vkDestroyImageView(device, imageView, nullptr);
+	}
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
 	vkDestroyDevice(device, nullptr);
 	vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -541,6 +552,42 @@ int vulkanSwapchain()
 	return 0;
 }
 
+int vulkanImageViews()
+{
+	swapchainImageViews.resize(swapchainImages.size());
+
+	for (size_t i = 0; i < swapchainImages.size(); ++i)
+	{
+		VkImageViewCreateInfo createInfo = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = swapchainImages[i],
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = swapchainImageFormat,
+			.components = {
+				.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.a = VK_COMPONENT_SWIZZLE_IDENTITY
+			},
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+
+		if (vkCreateImageView(device, &createInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS)
+		{
+			std::cerr << "Failed to create an image view\n";
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 int main()
 {
 	glfwInit();
@@ -560,6 +607,7 @@ int main()
 	if (vulkanPhysicalDevice() < 0) return -4;
 	if (vulkanLogicalDevice() < 0) return -5;
 	if (vulkanSwapchain() < 0) return -6;
+	if (vulkanImageViews() < 0) return -7;
 
 	while (!glfwWindowShouldClose(window))
 	{
