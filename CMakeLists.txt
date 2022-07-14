@@ -8,7 +8,7 @@ execute_process(COMMAND git submodule update --init --recursive
 	RESULT_VARIABLE GIT_RESULT
 )
 if(NOT GIT_RESULT EQUAL "0")
-	message(FATAL_ERROR "failed to update submodules, ${GIT_RESULT}")
+	message(FATAL_ERROR "Failed to update submodules, ${GIT_RESULT}")
 endif()
 
 project(vulkan-tutorial)

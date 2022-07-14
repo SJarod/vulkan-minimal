@@ -69,7 +69,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 static std::vector<char> readBinaryFile(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-	assert(("failed to open file", file.is_open()));
+	assert(("Failed to open file", file.is_open()));
 
 	size_t fileSize = static_cast<size_t>(file.tellg());
 	std::vector<char> buffer(fileSize);
@@ -120,6 +120,7 @@ int vulkanSwapchain();
 int vulkanImageViews();
 void vulkanGraphicsPipeline();
 VkShaderModule createShaderModule(const std::vector<char>& code);
+int vulkanRenderPass();
 
 GLFWwindow* window;
 VkInstance instance;
@@ -134,6 +135,7 @@ std::vector<VkImage> swapchainImages;
 VkFormat swapchainImageFormat;
 VkExtent2D swapchainExtent;
 std::vector<VkImageView> swapchainImageViews;
+VkRenderPass renderPass;
 VkPipelineLayout pipelineLayout;
 
 int vulkanInit()
@@ -157,6 +159,7 @@ int vulkanInit()
 void vulkanDestroy()
 {
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+	vkDestroyRenderPass(device, renderPass, nullptr);
 	for (VkImageView& imageView : swapchainImageViews)
 	{
 		vkDestroyImageView(device, imageView, nullptr);
@@ -737,7 +740,7 @@ void vulkanGraphicsPipeline()
 		.pPushConstantRanges = nullptr
 	};
 
-	assert(("failed to create pipeline layout",
+	assert(("Failed to create pipeline layout",
 		vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) == VK_SUCCESS));
 
 	vkDestroyShaderModule(device, vsModule, nullptr);
@@ -753,8 +756,49 @@ VkShaderModule createShaderModule(const std::vector<char>& code)
 	};
 
 	VkShaderModule shaderModule;
-	assert(("failed to create shader module", vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS));
+	assert(("Failed to create shader module", vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS));
 	return shaderModule;
+}
+
+int vulkanRenderPass()
+{
+	VkAttachmentDescription colorAttachment = {
+		.format = swapchainImageFormat,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,		//load : what to do with the already existing image on the framebuffer
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,	//store : what to do with the newly rendered image on the framebuffer
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+	};
+
+	VkAttachmentReference colorAttachmentRef = {
+		.attachment = 0,	//colorAttachment is index 0
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	};
+
+	VkSubpassDescription subpass = {
+		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+		.colorAttachmentCount = 1,
+		.pColorAttachments = &colorAttachmentRef
+	};
+
+	VkRenderPassCreateInfo createInfo = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+		.attachmentCount = 1,
+		.pAttachments = &colorAttachment,
+		.subpassCount = 1,
+		.pSubpasses = &subpass
+	};
+
+	if (vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) != VK_SUCCESS)
+	{
+		std::cerr << "Failed to create render pass\n";
+		return -1;
+	}
+
+	return 0;
 }
 
 int main()
@@ -777,6 +821,7 @@ int main()
 	if (vulkanLogicalDevice() < 0) return -5;
 	if (vulkanSwapchain() < 0) return -6;
 	if (vulkanImageViews() < 0) return -7;
+	if (vulkanRenderPass() < 0) return -8;
 	vulkanGraphicsPipeline();
 
 	while (!glfwWindowShouldClose(window))
