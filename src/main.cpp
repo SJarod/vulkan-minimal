@@ -10,6 +10,29 @@
 
 #include "mathematics.hpp"
 
+//manually load these functions in vulkanCreate()
+#undef vkCreateDebugUtilsMessengerEXT;
+#undef vkDestroyDebugUtilsMessengerEXT;
+
+#undef vkCreateSwapchainKHR;
+#undef vkDestroySwapchainKHR;
+
+VkResult (*vkCreateDebugUtilsMessengerEXT)(VkInstance instance,
+	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+	const VkAllocationCallbacks* pAllocator,
+	VkDebugUtilsMessengerEXT* pDebugMessenger);
+void (*vkDestroyDebugUtilsMessengerEXT)(VkInstance instance,
+	VkDebugUtilsMessengerEXT messenger,
+	const VkAllocationCallbacks* pAllocator);
+
+VkResult (*vkCreateSwapchainKHR)(VkDevice device,
+	const VkSwapchainCreateInfoKHR* pCreateInfo,
+	const VkAllocationCallbacks* pAllocator,
+	VkSwapchainKHR* pSwapchain);
+void (*vkDestroySwapchainKHR)(VkDevice device,
+	VkSwapchainKHR swapchain,
+	const VkAllocationCallbacks* pAllocator);
+
 #ifndef NDEBUG
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
@@ -20,9 +43,20 @@ const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+	void* userData)
+{
+	std::cerr << "validation layer: " << callbackData->pMessage << std::endl;
+	return VK_FALSE;
+}
+
 int vulkanInit();
 void vulkanDestroy();
 int vulkanCreate();
+int vulkanDebugMessenger();
 void vulkanExtensions();
 void vulkanLayers();
 bool isDeviceSuitable(VkPhysicalDevice pdevice);
@@ -58,6 +92,7 @@ int vulkanSwapchain();
 
 GLFWwindow* window;
 VkInstance instance;
+VkDebugUtilsMessengerEXT debugMessenger;
 VkSurfaceKHR surface;
 VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 VkDevice device;
@@ -88,6 +123,7 @@ void vulkanDestroy()
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
 	vkDestroyDevice(device, nullptr);
 	vkDestroySurfaceKHR(instance, surface, nullptr);
+	vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 	vkDestroyInstance(instance, nullptr);
 }
 
@@ -106,6 +142,11 @@ int vulkanCreate()
 
 	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
+	std::vector<const char*> enabledExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+#ifndef NDEBUG
+	enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
+
 	VkInstanceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &appInfo,
@@ -115,13 +156,46 @@ int vulkanCreate()
 		.enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
 		.ppEnabledLayerNames = validationLayers.data(),
 #endif
-		.enabledExtensionCount = glfwExtensionCount,
-		.ppEnabledExtensionNames = glfwExtensions
+		.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size()),
+		.ppEnabledExtensionNames = enabledExtensions.data()
 	};
 
 	if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
 	{
 		std::cerr << "Failed to create vulkan instance\n";
+		return -1;
+	}
+
+	vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+	vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+
+	vkCreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)vkGetInstanceProcAddr(instance, "vkCreateSwapchainKHR");
+	vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)vkGetInstanceProcAddr(instance, "vkDestroySwapchainKHR");
+
+	return 0;
+}
+
+int vulkanDebugMessenger()
+{
+	VkDebugUtilsMessengerCreateInfoEXT createInfo = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+		.messageSeverity =
+			//VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+			,
+		.messageType =
+			VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+			,
+		.pfnUserCallback = debugCallback,
+		.pUserData = nullptr
+	};
+
+	if (vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+	{
+		std::cerr << "Failed to set up debug messenger\n";
 		return -1;
 	}
 
@@ -456,6 +530,9 @@ int main()
 	vulkanExtensions();
 	vulkanLayers();
 	if (vulkanCreate() < 0) return -2;
+#ifndef NDEBUG
+	if (vulkanDebugMessenger() < 0) return -2;
+#endif
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
