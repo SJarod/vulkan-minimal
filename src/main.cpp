@@ -7,6 +7,7 @@
 #include <limits>
 
 #include <iostream>
+#include <fstream>
 
 #include "mathematics.hpp"
 
@@ -65,6 +66,21 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
+static std::vector<char> readBinaryFile(const std::string& filename)
+{
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+	assert(file.is_open());
+
+	size_t fileSize = static_cast<size_t>(file.tellg());
+	std::vector<char> buffer(fileSize);
+
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+
+	file.close();
+	return buffer;
+}
+
 int vulkanInit();
 void vulkanDestroy();
 int vulkanCreate();
@@ -103,6 +119,7 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 int vulkanSwapchain();
 int vulkanImageViews();
 void vulkanGraphicsPipeline();
+VkShaderModule createShaderModule(const std::vector<char>& code);
 
 GLFWwindow* window;
 VkInstance instance;
@@ -591,6 +608,44 @@ int vulkanImageViews()
 
 void vulkanGraphicsPipeline()
 {
+	std::vector<char> vs = readBinaryFile("shaders/vstriangle.spv");
+	std::vector<char> fs = readBinaryFile("shaders/fstriangle.spv");
+
+	VkShaderModule vsModule = createShaderModule(vs);
+	VkShaderModule fsModule = createShaderModule(fs);
+
+	VkPipelineShaderStageCreateInfo vsStageCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_VERTEX_BIT,
+		.module = vsModule,
+		.pName = "main",
+		//for shader constants values
+		.pSpecializationInfo = nullptr
+	};
+
+	VkPipelineShaderStageCreateInfo fsStageCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+		.module = fsModule,
+		.pName = "main",
+		.pSpecializationInfo = nullptr
+	};
+
+	vkDestroyShaderModule(device, vsModule, nullptr);
+	vkDestroyShaderModule(device, fsModule, nullptr);
+}
+
+VkShaderModule createShaderModule(const std::vector<char>& code)
+{
+	VkShaderModuleCreateInfo createInfo = {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = code.size(),
+		.pCode = reinterpret_cast<const uint32_t*>(code.data())
+	};
+
+	VkShaderModule shaderModule;
+	assert(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS);
+	return shaderModule;
 }
 
 int main()
