@@ -118,7 +118,7 @@ VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& avai
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 int vulkanSwapchain();
 int vulkanImageViews();
-void vulkanGraphicsPipeline();
+int vulkanGraphicsPipeline();
 VkShaderModule createShaderModule(const std::vector<char>& code);
 int vulkanRenderPass();
 
@@ -137,6 +137,7 @@ VkExtent2D swapchainExtent;
 std::vector<VkImageView> swapchainImageViews;
 VkRenderPass renderPass;
 VkPipelineLayout pipelineLayout;
+VkPipeline graphicsPipeline;
 
 int vulkanInit()
 {
@@ -158,6 +159,7 @@ int vulkanInit()
 
 void vulkanDestroy()
 {
+	vkDestroyPipeline(device, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyRenderPass(device, renderPass, nullptr);
 	for (VkImageView& imageView : swapchainImageViews)
@@ -611,7 +613,7 @@ int vulkanImageViews()
 	return 0;
 }
 
-void vulkanGraphicsPipeline()
+int vulkanGraphicsPipeline()
 {
 	std::vector<char> vs = readBinaryFile("shaders/vstriangle.spv");
 	std::vector<char> fs = readBinaryFile("shaders/fstriangle.spv");
@@ -634,6 +636,11 @@ void vulkanGraphicsPipeline()
 		.module = fsModule,
 		.pName = "main",
 		.pSpecializationInfo = nullptr
+	};
+
+	VkPipelineShaderStageCreateInfo shaderStagesCreateInfo[] = {
+		vsStageCreateInfo,
+		fsStageCreateInfo
 	};
 
 	std::vector<VkDynamicState> dynamicStates = {
@@ -743,8 +750,39 @@ void vulkanGraphicsPipeline()
 	assert(("Failed to create pipeline layout",
 		vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) == VK_SUCCESS));
 
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		//shader stage
+		.stageCount = 2,
+		.pStages = shaderStagesCreateInfo,
+		//fixed function stage
+		.pVertexInputState = &vertexInputCreateInfo,
+		.pInputAssemblyState = &inputAssemblyCreateInfo,
+		.pViewportState = &viewportStateCreateInfo,
+		.pRasterizationState = &rasterizerCreateInfo,
+		.pMultisampleState = &multisamplingCreateInfo,
+		.pDepthStencilState = nullptr,
+		.pColorBlendState = &colorBlendCreateInfo,
+		.pDynamicState = &dynamicStateCreateInfo,
+		//pipeline layout
+		.layout = pipelineLayout,
+		//render pass
+		.renderPass = renderPass,
+		.subpass = 0,
+		.basePipelineHandle = VK_NULL_HANDLE,
+		.basePipelineIndex = -1
+	};
+
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+	{
+		std::cerr << "Failed to create graphics pipeline\n";
+		return -1;
+	}
+
 	vkDestroyShaderModule(device, vsModule, nullptr);
 	vkDestroyShaderModule(device, fsModule, nullptr);
+
+	return 0;
 }
 
 VkShaderModule createShaderModule(const std::vector<char>& code)
@@ -822,7 +860,7 @@ int main()
 	if (vulkanSwapchain() < 0) return -6;
 	if (vulkanImageViews() < 0) return -7;
 	if (vulkanRenderPass() < 0) return -8;
-	vulkanGraphicsPipeline();
+	if (vulkanGraphicsPipeline() < 0) return -9;
 
 	while (!glfwWindowShouldClose(window))
 	{
