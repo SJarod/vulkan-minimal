@@ -69,7 +69,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 static std::vector<char> readBinaryFile(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-	assert(file.is_open());
+	assert(("failed to open file", file.is_open()));
 
 	size_t fileSize = static_cast<size_t>(file.tellg());
 	std::vector<char> buffer(fileSize);
@@ -134,6 +134,7 @@ std::vector<VkImage> swapchainImages;
 VkFormat swapchainImageFormat;
 VkExtent2D swapchainExtent;
 std::vector<VkImageView> swapchainImageViews;
+VkPipelineLayout pipelineLayout;
 
 int vulkanInit()
 {
@@ -155,6 +156,7 @@ int vulkanInit()
 
 void vulkanDestroy()
 {
+	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	for (VkImageView& imageView : swapchainImageViews)
 	{
 		vkDestroyImageView(device, imageView, nullptr);
@@ -679,6 +681,65 @@ void vulkanGraphicsPipeline()
 		.scissorCount = 1
 	};
 
+	//rasterizer
+	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = VK_POLYGON_MODE_FILL,
+		.cullMode = VK_CULL_MODE_BACK_BIT,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.depthBiasEnable = VK_FALSE,
+		.depthBiasConstantFactor = 0.f,
+		.depthBiasClamp = 0.f,
+		.depthBiasSlopeFactor = 0.f,
+		.lineWidth = 1.f
+	};
+
+	//multisampling, anti-aliasing
+	VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.sampleShadingEnable = VK_FALSE,
+		.minSampleShading = 1.f,
+		.pSampleMask = nullptr,
+		.alphaToCoverageEnable = VK_FALSE,
+		.alphaToOneEnable = VK_FALSE
+	};
+
+	//color blending
+	VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+		.blendEnable = VK_TRUE,
+		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+		.colorBlendOp = VK_BLEND_OP_ADD,
+		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+		.alphaBlendOp = VK_BLEND_OP_ADD,
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+	};
+
+	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.logicOpEnable = VK_FALSE,
+		.logicOp = VK_LOGIC_OP_COPY,
+		.attachmentCount = 1,
+		.pAttachments = &colorBlendAttachment,
+		.blendConstants = { 0.f, 0.f, 0.f, 0.f }
+	};
+
+	//uniforms
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = 0,
+		.pSetLayouts = nullptr,
+		.pushConstantRangeCount = 0,
+		.pPushConstantRanges = nullptr
+	};
+
+	assert(("failed to create pipeline layout",
+		vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) == VK_SUCCESS));
+
 	vkDestroyShaderModule(device, vsModule, nullptr);
 	vkDestroyShaderModule(device, fsModule, nullptr);
 }
@@ -692,7 +753,7 @@ VkShaderModule createShaderModule(const std::vector<char>& code)
 	};
 
 	VkShaderModule shaderModule;
-	assert(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS);
+	assert(("failed to create shader module", vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS));
 	return shaderModule;
 }
 
