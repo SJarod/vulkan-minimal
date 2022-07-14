@@ -102,6 +102,7 @@ VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& avai
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 int vulkanSwapchain();
 int vulkanImageViews();
+void vulkanGraphicsPipeline();
 
 GLFWwindow* window;
 VkInstance instance;
@@ -588,6 +589,10 @@ int vulkanImageViews()
 	return 0;
 }
 
+void vulkanGraphicsPipeline()
+{
+}
+
 int main()
 {
 	glfwInit();
@@ -608,6 +613,7 @@ int main()
 	if (vulkanLogicalDevice() < 0) return -5;
 	if (vulkanSwapchain() < 0) return -6;
 	if (vulkanImageViews() < 0) return -7;
+	vulkanGraphicsPipeline();
 
 	while (!glfwWindowShouldClose(window))
 	{
