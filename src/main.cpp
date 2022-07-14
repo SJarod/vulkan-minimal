@@ -17,6 +17,8 @@
 #undef vkCreateSwapchainKHR;
 #undef vkDestroySwapchainKHR;
 
+#undef vkGetSwapchainImagesKHR;
+
 VkResult (*vkCreateDebugUtilsMessengerEXT)(VkInstance instance,
 	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 	const VkAllocationCallbacks* pAllocator,
@@ -32,6 +34,11 @@ VkResult (*vkCreateSwapchainKHR)(VkDevice device,
 void (*vkDestroySwapchainKHR)(VkDevice device,
 	VkSwapchainKHR swapchain,
 	const VkAllocationCallbacks* pAllocator);
+
+VkResult (*vkGetSwapchainImagesKHR)(VkDevice device,
+	VkSwapchainKHR swapchain,
+	uint32_t* pSwapchainImageCount,
+	VkImage* pSwapchainImages);
 
 #ifndef NDEBUG
 const std::vector<const char*> validationLayers = {
@@ -99,6 +106,9 @@ VkDevice device;
 VkQueue graphicsQueue;
 VkQueue presentQueue;
 VkSwapchainKHR swapchain;
+std::vector<VkImage> swapchainImages;
+VkFormat swapchainImageFormat;
+VkExtent2D swapchainExtent;
 
 int vulkanInit()
 {
@@ -171,6 +181,8 @@ int vulkanCreate()
 
 	vkCreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)vkGetInstanceProcAddr(instance, "vkCreateSwapchainKHR");
 	vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)vkGetInstanceProcAddr(instance, "vkDestroySwapchainKHR");
+
+	vkGetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)vkGetInstanceProcAddr(instance, "vkGetSwapchainImagesKHR");
 
 	return 0;
 }
@@ -518,6 +530,13 @@ int vulkanSwapchain()
 		std::cerr << "Failed to create swapchain\n";
 		return -1;
 	}
+
+	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
+	swapchainImages.resize(imageCount);
+	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data());
+
+	swapchainImageFormat = surfaceFormat.format;
+	swapchainExtent = extent;
 
 	return 0;
 }
