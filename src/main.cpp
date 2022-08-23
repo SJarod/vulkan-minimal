@@ -81,14 +81,14 @@ static std::vector<char> readBinaryFile(const std::string& filename)
 	return buffer;
 }
 
-int vulkanInit();
+void vulkanInit();
 void vulkanDestroy();
-int vulkanCreate();
-int vulkanDebugMessenger();
+void vulkanCreate();
+void vulkanDebugMessenger();
 void vulkanExtensions();
 void vulkanLayers();
 bool isDeviceSuitable(VkPhysicalDevice pdevice);
-int vulkanPhysicalDevice();
+void vulkanPhysicalDevice();
 using VkQueueFamilyIndex = std::optional<uint32_t>;
 struct VkQueueFamilyIndices
 {
@@ -103,8 +103,8 @@ struct VkQueueFamilyIndices
  * Find a queue family capable of VK_QUEUE_GRAPHICS_BIT and presenting images.
  */
 VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice);
-int vulkanLogicalDevice();
-int vulkanSurface(GLFWwindow* window);
+void vulkanLogicalDevice();
+void vulkanSurface(GLFWwindow* window);
 bool checkDeviceExtensionSupport(VkPhysicalDevice pdevice);
 struct VkSwapchainSupportDetails
 {
@@ -116,11 +116,11 @@ VkSwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice pdevice);
 VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availableModes);
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-int vulkanSwapchain();
-int vulkanImageViews();
-int vulkanGraphicsPipeline();
+void vulkanSwapchain();
+void vulkanImageViews();
+void vulkanGraphicsPipeline();
 VkShaderModule createShaderModule(const std::vector<char>& code);
-int vulkanRenderPass();
+void vulkanRenderPass();
 void vulkanFramebuffers();
 
 GLFWwindow* window;
@@ -141,22 +141,11 @@ VkPipelineLayout pipelineLayout;
 VkPipeline graphicsPipeline;
 std::vector<VkFramebuffer> swapchainFramebuffers;
 
-int vulkanInit()
+void vulkanInit()
 {
-	if (!glfwVulkanSupported())
-	{
-		std::cerr << "GLFW failed to find the Vulkan loader.\nExiting ...\n";
-		fflush(stdout);
-		return -1;
-	}
+	assert(("GLFW failed to find the Vulkan loader", glfwVulkanSupported()));
 
-	if (!gladLoaderLoadVulkan(nullptr, nullptr, nullptr))
-	{
-		std::cerr << "Unable to load Vulkan symbols!\ngladLoad Failure\n";
-		return -2;
-	}
-
-	return 0;
+	assert(("Unable to load Vulkan symbols", gladLoaderLoadVulkan(nullptr, nullptr, nullptr)));
 }
 
 void vulkanDestroy()
@@ -179,7 +168,7 @@ void vulkanDestroy()
 	vkDestroyInstance(instance, nullptr);
 }
 
-int vulkanCreate()
+void vulkanCreate()
 {
 	VkApplicationInfo appInfo = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -212,11 +201,7 @@ int vulkanCreate()
 		.ppEnabledExtensionNames = enabledExtensions.data()
 	};
 
-	if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to create vulkan instance\n";
-		return -1;
-	}
+	assert(("Failed to create Vulkan instance", vkCreateInstance(&createInfo, nullptr, &instance) == VK_SUCCESS));
 
 	vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 	vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -225,11 +210,9 @@ int vulkanCreate()
 	vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)vkGetInstanceProcAddr(instance, "vkDestroySwapchainKHR");
 
 	vkGetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)vkGetInstanceProcAddr(instance, "vkGetSwapchainImagesKHR");
-
-	return 0;
 }
 
-int vulkanDebugMessenger()
+void vulkanDebugMessenger()
 {
 	VkDebugUtilsMessengerCreateInfoEXT createInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
@@ -247,13 +230,7 @@ int vulkanDebugMessenger()
 		.pUserData = nullptr
 	};
 
-	if (vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to set up debug messenger\n";
-		return -1;
-	}
-
-	return 0;
+	assert(("Failed to set up debug messenger", vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) == VK_SUCCESS));
 }
 
 void vulkanExtensions()
@@ -306,15 +283,12 @@ bool isDeviceSuitable(VkPhysicalDevice pdevice)
 #endif
 }
 
-int vulkanPhysicalDevice()
+void vulkanPhysicalDevice()
 {
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-	if (deviceCount == 0)
-	{
-		std::cerr << "Failed to find GPUs with Vulkan support\n";
-		return -1;
-	}
+	assert(("Failed to find GPUs with Vulkan support", deviceCount != 0));
+
 	std::vector<VkPhysicalDevice> devices(deviceCount);
 	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 	std::cout << "available devices : " << deviceCount << '\n';
@@ -335,13 +309,8 @@ int vulkanPhysicalDevice()
 			break;
 		}
 	}
-	if (physicalDevice == VK_NULL_HANDLE)
-	{
-		std::cerr << "Failed to find a suitable GPU\n";
-		return -2;
-	}
-
-	return 0;
+	
+	assert(("Failed to find a suitable GPU", physicalDevice != VK_NULL_HANDLE));
 }
 
 VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice)
@@ -368,7 +337,7 @@ VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice)
 	return indices;
 }
 
-int vulkanLogicalDevice()
+void vulkanLogicalDevice()
 {
 	VkQueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
@@ -401,27 +370,15 @@ int vulkanLogicalDevice()
 		.ppEnabledExtensionNames = deviceExtensions.data()
 	};
 
-	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to create logical device\n";
-		return -1;
-	}
+	assert(("Failed to create logical device", vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) == VK_SUCCESS));
 
 	vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
 	vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
-
-	return 0;
 }
 
-int vulkanSurface(GLFWwindow* window)
+void vulkanSurface(GLFWwindow* window)
 {
-	if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to create window surface\n";
-		return -1;
-	}
-
-	return 0;
+	assert(("Failed to create window surface", glfwCreateWindowSurface(instance, window, nullptr, &surface) == VK_SUCCESS));
 }
 
 bool checkDeviceExtensionSupport(VkPhysicalDevice pdevice)
@@ -520,7 +477,7 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
 	}
 }
 
-int vulkanSwapchain()
+void vulkanSwapchain()
 {
 	VkSwapchainSupportDetails support = querySwapchainSupport(physicalDevice);
 
@@ -567,11 +524,7 @@ int vulkanSwapchain()
 		createInfo.pQueueFamilyIndices = nullptr;
 	}
 
-	if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to create swapchain\n";
-		return -1;
-	}
+	assert(("Failed to create swapchain", vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) == VK_SUCCESS));
 
 	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
 	swapchainImages.resize(imageCount);
@@ -579,11 +532,9 @@ int vulkanSwapchain()
 
 	swapchainImageFormat = surfaceFormat.format;
 	swapchainExtent = extent;
-
-	return 0;
 }
 
-int vulkanImageViews()
+void vulkanImageViews()
 {
 	swapchainImageViews.resize(swapchainImages.size());
 
@@ -609,17 +560,11 @@ int vulkanImageViews()
 			}
 		};
 
-		if (vkCreateImageView(device, &createInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS)
-		{
-			std::cerr << "Failed to create an image view\n";
-			return -1;
-		}
+		assert(("Failed to create an image view", vkCreateImageView(device, &createInfo, nullptr, &swapchainImageViews[i]) == VK_SUCCESS));
 	}
-
-	return 0;
 }
 
-int vulkanGraphicsPipeline()
+void vulkanGraphicsPipeline()
 {
 	std::vector<char> vs = readBinaryFile("shaders/vstriangle.spv");
 	std::vector<char> fs = readBinaryFile("shaders/fstriangle.spv");
@@ -779,16 +724,11 @@ int vulkanGraphicsPipeline()
 		.basePipelineIndex = -1
 	};
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to create graphics pipeline\n";
-		return -1;
-	}
+	assert(("Failed to create graphics pipeline",
+		vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline) == VK_SUCCESS));
 
 	vkDestroyShaderModule(device, vsModule, nullptr);
 	vkDestroyShaderModule(device, fsModule, nullptr);
-
-	return 0;
 }
 
 VkShaderModule createShaderModule(const std::vector<char>& code)
@@ -804,7 +744,7 @@ VkShaderModule createShaderModule(const std::vector<char>& code)
 	return shaderModule;
 }
 
-int vulkanRenderPass()
+void vulkanRenderPass()
 {
 	VkAttachmentDescription colorAttachment = {
 		.format = swapchainImageFormat,
@@ -836,13 +776,7 @@ int vulkanRenderPass()
 		.pSubpasses = &subpass
 	};
 
-	if (vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) != VK_SUCCESS)
-	{
-		std::cerr << "Failed to create render pass\n";
-		return -1;
-	}
-
-	return 0;
+	assert(("Failed to create render pass", vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) == VK_SUCCESS));
 }
 
 void vulkanFramebuffers()
@@ -869,24 +803,24 @@ int main()
 {
 	glfwInit();
 
-	if (vulkanInit() < 0) return -1;
+	vulkanInit();
 	vulkanExtensions();
 	vulkanLayers();
-	if (vulkanCreate() < 0) return -2;
+	vulkanCreate();
 #ifndef NDEBUG
-	if (vulkanDebugMessenger() < 0) return -2;
+	vulkanDebugMessenger();
 #endif
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
 
-	if (vulkanSurface(window) < 0) return -3;
-	if (vulkanPhysicalDevice() < 0) return -4;
-	if (vulkanLogicalDevice() < 0) return -5;
-	if (vulkanSwapchain() < 0) return -6;
-	if (vulkanImageViews() < 0) return -7;
-	if (vulkanRenderPass() < 0) return -8;
-	if (vulkanGraphicsPipeline() < 0) return -9;
+	vulkanSurface(window);
+	vulkanPhysicalDevice();
+	vulkanLogicalDevice();
+	vulkanSwapchain();
+	vulkanImageViews();
+	vulkanRenderPass();
+	vulkanGraphicsPipeline();
 
 	while (!glfwWindowShouldClose(window))
 	{
