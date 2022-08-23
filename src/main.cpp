@@ -121,6 +121,7 @@ int vulkanImageViews();
 int vulkanGraphicsPipeline();
 VkShaderModule createShaderModule(const std::vector<char>& code);
 int vulkanRenderPass();
+void vulkanFramebuffers();
 
 GLFWwindow* window;
 VkInstance instance;
@@ -138,6 +139,7 @@ std::vector<VkImageView> swapchainImageViews;
 VkRenderPass renderPass;
 VkPipelineLayout pipelineLayout;
 VkPipeline graphicsPipeline;
+std::vector<VkFramebuffer> swapchainFramebuffers;
 
 int vulkanInit()
 {
@@ -159,6 +161,10 @@ int vulkanInit()
 
 void vulkanDestroy()
 {
+	for (VkFramebuffer& framebuffer : swapchainFramebuffers)
+	{
+		vkDestroyFramebuffer(device, framebuffer, nullptr);
+	}
 	vkDestroyPipeline(device, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyRenderPass(device, renderPass, nullptr);
@@ -837,6 +843,26 @@ int vulkanRenderPass()
 	}
 
 	return 0;
+}
+
+void vulkanFramebuffers()
+{
+	swapchainFramebuffers.resize(swapchainImageViews.size());
+
+	for (size_t i = 0; i < swapchainImageViews.size(); ++i)
+	{
+		VkFramebufferCreateInfo createInfo = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = renderPass,
+			.attachmentCount = 1,
+			.pAttachments = &swapchainImageViews[i],
+			.width = swapchainExtent.width,
+			.height = swapchainExtent.height,
+			.layers = 1
+		};
+
+		assert(("Failed to create framebuffer", vkCreateFramebuffer(device, &createInfo, nullptr, &swapchainFramebuffers[i]) == VK_SUCCESS));
+	}
 }
 
 int main()
