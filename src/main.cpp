@@ -69,7 +69,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 static std::vector<char> readBinaryFile(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-	assert(("Failed to open file", file.is_open()));
+	if (!file.is_open())
+		throw std::exception("Failed to open file");
 
 	size_t fileSize = static_cast<size_t>(file.tellg());
 	std::vector<char> buffer(fileSize);
@@ -143,9 +144,11 @@ std::vector<VkFramebuffer> swapchainFramebuffers;
 
 void vulkanInit()
 {
-	assert(("GLFW failed to find the Vulkan loader", glfwVulkanSupported()));
+	if (!glfwVulkanSupported())
+		throw std::exception("GLFW failed to find the Vulkan loader");
 
-	assert(("Unable to load Vulkan symbols", gladLoaderLoadVulkan(nullptr, nullptr, nullptr)));
+	if (!gladLoaderLoadVulkan(nullptr, nullptr, nullptr))
+		throw std::exception("Unable to load Vulkan symbols");
 }
 
 void vulkanDestroy()
@@ -201,7 +204,8 @@ void vulkanCreate()
 		.ppEnabledExtensionNames = enabledExtensions.data()
 	};
 
-	assert(("Failed to create Vulkan instance", vkCreateInstance(&createInfo, nullptr, &instance) == VK_SUCCESS));
+	if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
+		throw std::exception("Failed to create Vulkan instance");
 
 	vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 	vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -230,7 +234,8 @@ void vulkanDebugMessenger()
 		.pUserData = nullptr
 	};
 
-	assert(("Failed to set up debug messenger", vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) == VK_SUCCESS));
+	if (vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+		throw std::exception("Failed to set up debug messenger");
 }
 
 void vulkanExtensions()
@@ -287,7 +292,8 @@ void vulkanPhysicalDevice()
 {
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-	assert(("Failed to find GPUs with Vulkan support", deviceCount != 0));
+	if (deviceCount == 0)
+		throw std::exception("Failed to find GPUs with Vulkan support");
 
 	std::vector<VkPhysicalDevice> devices(deviceCount);
 	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
@@ -310,7 +316,8 @@ void vulkanPhysicalDevice()
 		}
 	}
 	
-	assert(("Failed to find a suitable GPU", physicalDevice != VK_NULL_HANDLE));
+	if (physicalDevice == VK_NULL_HANDLE)
+		throw std::exception("Failed to find a suitable GPU");
 }
 
 VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice)
@@ -370,7 +377,8 @@ void vulkanLogicalDevice()
 		.ppEnabledExtensionNames = deviceExtensions.data()
 	};
 
-	assert(("Failed to create logical device", vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) == VK_SUCCESS));
+	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+		throw std::exception("Failed to create logical device");
 
 	vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
 	vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
@@ -378,7 +386,8 @@ void vulkanLogicalDevice()
 
 void vulkanSurface(GLFWwindow* window)
 {
-	assert(("Failed to create window surface", glfwCreateWindowSurface(instance, window, nullptr, &surface) == VK_SUCCESS));
+	if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
+		throw std::exception("Failed to create window surface");
 }
 
 bool checkDeviceExtensionSupport(VkPhysicalDevice pdevice)
@@ -524,7 +533,8 @@ void vulkanSwapchain()
 		createInfo.pQueueFamilyIndices = nullptr;
 	}
 
-	assert(("Failed to create swapchain", vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) == VK_SUCCESS));
+	if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) != VK_SUCCESS)
+		throw std::exception("Failed to create swapchain");
 
 	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
 	swapchainImages.resize(imageCount);
@@ -560,7 +570,8 @@ void vulkanImageViews()
 			}
 		};
 
-		assert(("Failed to create an image view", vkCreateImageView(device, &createInfo, nullptr, &swapchainImageViews[i]) == VK_SUCCESS));
+		if (vkCreateImageView(device, &createInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS)
+			throw std::exception("Failed to create an image view");
 	}
 }
 
@@ -698,8 +709,8 @@ void vulkanGraphicsPipeline()
 		.pPushConstantRanges = nullptr
 	};
 
-	assert(("Failed to create pipeline layout",
-		vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) == VK_SUCCESS));
+	if (vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+		throw std::exception("Failed to create pipeline layout");
 
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -724,8 +735,8 @@ void vulkanGraphicsPipeline()
 		.basePipelineIndex = -1
 	};
 
-	assert(("Failed to create graphics pipeline",
-		vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline) == VK_SUCCESS));
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+		throw std::exception("Failed to create graphics pipeline");
 
 	vkDestroyShaderModule(device, vsModule, nullptr);
 	vkDestroyShaderModule(device, fsModule, nullptr);
@@ -740,7 +751,8 @@ VkShaderModule createShaderModule(const std::vector<char>& code)
 	};
 
 	VkShaderModule shaderModule;
-	assert(("Failed to create shader module", vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS));
+	if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+		throw std::exception("Failed to create shader module");
 	return shaderModule;
 }
 
@@ -776,7 +788,8 @@ void vulkanRenderPass()
 		.pSubpasses = &subpass
 	};
 
-	assert(("Failed to create render pass", vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) == VK_SUCCESS));
+	if (vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) != VK_SUCCESS)
+		throw std::exception("Failed to create render pass");
 }
 
 void vulkanFramebuffers()
@@ -795,32 +808,42 @@ void vulkanFramebuffers()
 			.layers = 1
 		};
 
-		assert(("Failed to create framebuffer", vkCreateFramebuffer(device, &createInfo, nullptr, &swapchainFramebuffers[i]) == VK_SUCCESS));
+		if (vkCreateFramebuffer(device, &createInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS)
+			throw std::exception("Failed to create framebuffer");
 	}
 }
 
 int main()
 {
-	glfwInit();
+	try
+	{
+		glfwInit();
 
-	vulkanInit();
-	vulkanExtensions();
-	vulkanLayers();
-	vulkanCreate();
+		vulkanInit();
+		vulkanExtensions();
+		vulkanLayers();
+		vulkanCreate();
 #ifndef NDEBUG
-	vulkanDebugMessenger();
+		vulkanDebugMessenger();
 #endif
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
 
-	vulkanSurface(window);
-	vulkanPhysicalDevice();
-	vulkanLogicalDevice();
-	vulkanSwapchain();
-	vulkanImageViews();
-	vulkanRenderPass();
-	vulkanGraphicsPipeline();
+		vulkanSurface(window);
+		vulkanPhysicalDevice();
+		vulkanLogicalDevice();
+		vulkanSwapchain();
+		vulkanImageViews();
+		vulkanRenderPass();
+		vulkanGraphicsPipeline();
+
+	}
+	catch (const std::exception& ex)
+	{
+		std::cerr << ex.what() << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -833,5 +856,5 @@ int main()
 
 	glfwTerminate();
 
-	return 0;
+	return EXIT_SUCCESS;
 }
