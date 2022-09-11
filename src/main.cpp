@@ -20,6 +20,9 @@
 
 #undef vkGetSwapchainImagesKHR;
 
+#undef vkAcquireNextImageKHR;
+#undef vkQueuePresentKHR;
+
 VkResult (*FCT_vkCreateDebugUtilsMessengerEXT)(VkInstance instance,
 	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 	const VkAllocationCallbacks* pAllocator,
@@ -45,6 +48,17 @@ VkResult (*FCT_vkGetSwapchainImagesKHR)(VkDevice device,
 	uint32_t* pSwapchainImageCount,
 	VkImage* pSwapchainImages);
 #define vkGetSwapchainImagesKHR FCT_vkGetSwapchainImagesKHR
+
+VkResult (*FCT_vkAcquireNextImageKHR)(VkDevice device,
+	VkSwapchainKHR swapchain,
+	uint64_t timeout,
+	VkSemaphore semaphore,
+	VkFence fence,
+	uint32_t* pImageIndex);
+#define vkAcquireNextImageKHR FCT_vkAcquireNextImageKHR
+
+VkResult (*FCT_vkQueuePresentKHR)(VkQueue queue, const VkPresentInfoKHR* pPresentInfo);
+#define vkQueuePresentKHR FCT_vkQueuePresentKHR
 
 #ifndef NDEBUG
 const std::vector<const char*> validationLayers = {
@@ -126,6 +140,8 @@ void vulkanFramebuffers();
 void vulkanCommandPool();
 void vulkanCommandBuffer();
 void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex);
+void drawFrame();
+void vulkanMultithreadObjects();
 
 GLFWwindow* window;
 VkInstance instance;
@@ -146,6 +162,9 @@ VkPipeline graphicsPipeline;
 std::vector<VkFramebuffer> swapchainFramebuffers;
 VkCommandPool commandPool;
 VkCommandBuffer commandBuffer;
+VkSemaphore renderReadySemaphore;
+VkSemaphore renderDoneSemaphore;
+VkFence renderOnceFence;
 
 void vulkanInit()
 {
@@ -158,6 +177,9 @@ void vulkanInit()
 
 void vulkanDestroy()
 {
+	vkDestroySemaphore(device, renderReadySemaphore, nullptr);
+	vkDestroySemaphore(device, renderDoneSemaphore, nullptr);
+	vkDestroyFence(device, renderOnceFence, nullptr);
 	vkDestroyCommandPool(device, commandPool, nullptr);
 	for (VkFramebuffer& framebuffer : swapchainFramebuffers)
 	{
@@ -220,6 +242,9 @@ void vulkanCreate()
 	vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)vkGetInstanceProcAddr(instance, "vkDestroySwapchainKHR");
 
 	vkGetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)vkGetInstanceProcAddr(instance, "vkGetSwapchainImagesKHR");
+
+	vkAcquireNextImageKHR = (PFN_vkAcquireNextImageKHR)vkGetInstanceProcAddr(instance, "vkAcquireNextImageKHR");
+	vkQueuePresentKHR = (PFN_vkQueuePresentKHR)vkGetInstanceProcAddr(instance, "vkQueuePresentKHR");
 }
 
 void vulkanDebugMessenger()
@@ -786,12 +811,23 @@ void vulkanRenderPass()
 		.pColorAttachments = &colorAttachmentRef
 	};
 
+	VkSubpassDependency dependency = {
+		.srcSubpass = VK_SUBPASS_EXTERNAL,
+		.dstSubpass = 0,
+		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+	};
+
 	VkRenderPassCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		.attachmentCount = 1,
 		.pAttachments = &colorAttachment,
 		.subpassCount = 1,
-		.pSubpasses = &subpass
+		.pSubpasses = &subpass,
+		.dependencyCount = 1,
+		.pDependencies = &dependency
 	};
 
 	if (vkCreateRenderPass(device, &createInfo, nullptr, &renderPass) != VK_SUCCESS)
@@ -830,9 +866,7 @@ void vulkanCommandPool()
 	};
 
 	if (vkCreateCommandPool(device, &createInfo, nullptr, &commandPool) != VK_SUCCESS)
-	{
 		throw std::exception("Failed to create command pool");
-	}
 }
 
 void vulkanCommandBuffer()
@@ -845,9 +879,7 @@ void vulkanCommandBuffer()
 	};
 
 	if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS)
-	{
 		throw std::exception("Failed to allocate command buffers");
-	}
 }
 
 void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex)
@@ -859,12 +891,10 @@ void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex)
 	};
 
 	if (vkBeginCommandBuffer(cb, &commandBufferBeginInfo) != VK_SUCCESS)
-	{
 		throw std::exception("Failed to begin recording command buffer");
-	}
 
 	VkClearValue clearColor = {
-		.color = { 0.f, 0.f, 0.f, 1.f }
+		.color = { 0.2f, 0.2f, 0.2f, 1.f }
 	};
 
 	VkRenderPassBeginInfo renderPassBeginInfo = {
@@ -905,9 +935,68 @@ void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex)
 	vkCmdEndRenderPass(cb);
 
 	if (vkEndCommandBuffer(cb) != VK_SUCCESS)
-	{
 		throw std::exception("Failed to record command buffer");
-	}
+}
+
+void drawFrame()
+{
+	vkWaitForFences(device, 1, &renderOnceFence, VK_TRUE, UINT64_MAX);
+	vkResetFences(device, 1, &renderOnceFence);
+
+	uint32_t imageIndex;
+	vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, renderReadySemaphore, VK_NULL_HANDLE, &imageIndex);
+
+	vkResetCommandBuffer(commandBuffer, 0);
+	recordCommandBuffer(commandBuffer, imageIndex);
+
+	VkSemaphore waitSemaphores[] = { renderReadySemaphore };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	VkSemaphore signalSemaphores[] = { renderDoneSemaphore };
+	VkSubmitInfo submitInfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = waitSemaphores,
+		.pWaitDstStageMask = waitStages,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &commandBuffer,
+		.signalSemaphoreCount = 1,
+		.pSignalSemaphores = signalSemaphores
+	};
+
+	if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, renderOnceFence) != VK_SUCCESS)
+		throw std::exception("Failed to submit draw command buffer");
+
+	VkSwapchainKHR swapchains[] = { swapchain };
+	VkPresentInfoKHR presentInfo = {
+		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = signalSemaphores,
+		.swapchainCount = 1,
+		.pSwapchains = swapchains,
+		.pImageIndices = &imageIndex,
+		.pResults = nullptr
+	};
+
+	vkQueuePresentKHR(presentQueue, &presentInfo);
+}
+
+void vulkanMultithreadObjects()
+{
+	VkSemaphoreCreateInfo semaphoreCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+	};
+
+	VkFenceCreateInfo fenceCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.flags = VK_FENCE_CREATE_SIGNALED_BIT
+	};
+
+	if (vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &renderReadySemaphore) != VK_SUCCESS)
+		throw std::exception("Failed to create semaphore");
+	if (vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &renderDoneSemaphore) != VK_SUCCESS)
+		throw std::exception("Failed to create semaphore");
+	if (vkCreateFence(device, &fenceCreateInfo, nullptr, &renderOnceFence) != VK_SUCCESS)
+		throw std::exception("Failed to create fence");
 }
 
 int main()
@@ -934,17 +1023,21 @@ int main()
 		vulkanImageViews();
 		vulkanRenderPass();
 		vulkanGraphicsPipeline();
+		vulkanFramebuffers();
+		vulkanCommandPool();
+		vulkanCommandBuffer();
+		vulkanMultithreadObjects();
 
+		while (!glfwWindowShouldClose(window))
+		{
+			glfwPollEvents();
+			drawFrame();
+		}
 	}
 	catch (const std::exception& ex)
 	{
 		std::cerr << ex.what() << std::endl;
 		return EXIT_FAILURE;
-	}
-
-	while (!glfwWindowShouldClose(window))
-	{
-		glfwPollEvents();
 	}
 
 	vulkanDestroy();
