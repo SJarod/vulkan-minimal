@@ -11,55 +11,6 @@
 
 #include "mathematics.hpp"
 
-//manually load these functions in vulkanCreate()
-#undef vkCreateDebugUtilsMessengerEXT;
-#undef vkDestroyDebugUtilsMessengerEXT;
-
-#undef vkCreateSwapchainKHR;
-#undef vkDestroySwapchainKHR;
-
-#undef vkGetSwapchainImagesKHR;
-
-#undef vkAcquireNextImageKHR;
-#undef vkQueuePresentKHR;
-
-VkResult (*FCT_vkCreateDebugUtilsMessengerEXT)(VkInstance instance,
-	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkDebugUtilsMessengerEXT* pDebugMessenger);
-#define vkCreateDebugUtilsMessengerEXT FCT_vkCreateDebugUtilsMessengerEXT
-void (*FCT_vkDestroyDebugUtilsMessengerEXT)(VkInstance instance,
-	VkDebugUtilsMessengerEXT messenger,
-	const VkAllocationCallbacks* pAllocator);
-#define vkDestroyDebugUtilsMessengerEXT FCT_vkDestroyDebugUtilsMessengerEXT
-
-VkResult (*FCT_vkCreateSwapchainKHR)(VkDevice device,
-	const VkSwapchainCreateInfoKHR* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkSwapchainKHR* pSwapchain);
-#define vkCreateSwapchainKHR FCT_vkCreateSwapchainKHR
-void (*FCT_vkDestroySwapchainKHR)(VkDevice device,
-	VkSwapchainKHR swapchain,
-	const VkAllocationCallbacks* pAllocator);
-#define vkDestroySwapchainKHR FCT_vkDestroySwapchainKHR
-
-VkResult (*FCT_vkGetSwapchainImagesKHR)(VkDevice device,
-	VkSwapchainKHR swapchain,
-	uint32_t* pSwapchainImageCount,
-	VkImage* pSwapchainImages);
-#define vkGetSwapchainImagesKHR FCT_vkGetSwapchainImagesKHR
-
-VkResult (*FCT_vkAcquireNextImageKHR)(VkDevice device,
-	VkSwapchainKHR swapchain,
-	uint64_t timeout,
-	VkSemaphore semaphore,
-	VkFence fence,
-	uint32_t* pImageIndex);
-#define vkAcquireNextImageKHR FCT_vkAcquireNextImageKHR
-
-VkResult (*FCT_vkQueuePresentKHR)(VkQueue queue, const VkPresentInfoKHR* pPresentInfo);
-#define vkQueuePresentKHR FCT_vkQueuePresentKHR
-
 #ifndef NDEBUG
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
@@ -234,17 +185,8 @@ void vulkanCreate()
 
 	if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
 		throw std::exception("Failed to create Vulkan instance");
-
-	vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-	vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-
-	vkCreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)vkGetInstanceProcAddr(instance, "vkCreateSwapchainKHR");
-	vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)vkGetInstanceProcAddr(instance, "vkDestroySwapchainKHR");
-
-	vkGetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)vkGetInstanceProcAddr(instance, "vkGetSwapchainImagesKHR");
-
-	vkAcquireNextImageKHR = (PFN_vkAcquireNextImageKHR)vkGetInstanceProcAddr(instance, "vkAcquireNextImageKHR");
-	vkQueuePresentKHR = (PFN_vkQueuePresentKHR)vkGetInstanceProcAddr(instance, "vkQueuePresentKHR");
+	if (!gladLoaderLoadVulkan(instance, nullptr, nullptr))
+		throw std::exception("Unable to reload Vulkan symbols with Vulkan instance");
 }
 
 void vulkanDebugMessenger()
@@ -349,6 +291,8 @@ void vulkanPhysicalDevice()
 	
 	if (physicalDevice == VK_NULL_HANDLE)
 		throw std::exception("Failed to find a suitable GPU");
+	if (!gladLoaderLoadVulkan(instance, physicalDevice, nullptr))
+		throw std::exception("Unable to reload Vulkan symbols with physical device");
 }
 
 VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice)
@@ -410,6 +354,8 @@ void vulkanLogicalDevice()
 
 	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
 		throw std::exception("Failed to create logical device");
+	if (!gladLoaderLoadVulkan(instance, physicalDevice, device))
+		throw std::exception("Unable to reload Vulkan symbols with logical device");
 
 	vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
 	vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
