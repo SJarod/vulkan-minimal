@@ -287,13 +287,13 @@ void vulkanPhysicalDevice()
 		std::cout << '\t' << properties.deviceName << '\n';
 	}
 
-	//select the first available device
+	//select the last available device (most likely discrete gpu)
 	for (const auto& device : devices)
 	{
 		if (isDeviceSuitable(device))
 		{
 			physicalDevice = device;
-			break;
+			//break;
 		}
 	}
 	
@@ -984,6 +984,8 @@ int main()
 			glfwPollEvents();
 			drawFrame();
 		}
+
+		vkDeviceWaitIdle(device);
 	}
 	catch (const std::exception& ex)
 	{
