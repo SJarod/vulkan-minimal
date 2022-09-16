@@ -47,6 +47,7 @@ static std::vector<char> readBinaryFile(const std::string& filename)
 	return buffer;
 }
 
+void windowInit();
 void vulkanInit();
 void vulkanDestroy();
 void vulkanCreate();
@@ -116,6 +117,13 @@ VkCommandBuffer commandBuffer;
 VkSemaphore renderReadySemaphore;
 VkSemaphore renderDoneSemaphore;
 VkFence renderOnceFence;
+
+void windowInit()
+{
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
+}
 
 void vulkanInit()
 {
@@ -951,6 +959,7 @@ int main()
 	{
 		glfwInit();
 
+		windowInit();
 		vulkanInit();
 		vulkanExtensions();
 		vulkanLayers();
@@ -958,10 +967,6 @@ int main()
 #ifndef NDEBUG
 		vulkanDebugMessenger();
 #endif
-
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
-
 		vulkanSurface(window);
 		vulkanPhysicalDevice();
 		vulkanLogicalDevice();
