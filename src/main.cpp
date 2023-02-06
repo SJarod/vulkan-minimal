@@ -146,6 +146,7 @@ void drawFrame();
 void vulkanMultithreadObjects();
 // vertex buffer object
 void vulkanVertexBuffer();
+uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 GLFWwindow* window;
 VkInstance instance;
@@ -170,6 +171,7 @@ VkSemaphore renderReadySemaphore;
 VkSemaphore renderDoneSemaphore;
 VkFence renderOnceFence;
 VkBuffer vbo;
+VkDeviceMemory vboMemory;
 
 void windowInit()
 {
@@ -190,6 +192,7 @@ void vulkanInit()
 void vulkanDestroy()
 {
 	vkDestroyBuffer(device, vbo, nullptr);
+	vkFreeMemory(device, vboMemory, nullptr);
 
 	vkDestroySemaphore(device, renderReadySemaphore, nullptr);
 	vkDestroySemaphore(device, renderDoneSemaphore, nullptr);
@@ -1029,6 +1032,37 @@ void vulkanVertexBuffer()
 
 	if (vkCreateBuffer(device, &createInfo, nullptr, &vbo) != VK_SUCCESS)
 		throw std::exception("Failed to create vertex buffer");
+
+	VkMemoryRequirements memReq;
+	vkGetBufferMemoryRequirements(device, vbo, &memReq);
+
+	// VRAM heap
+	VkMemoryAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memReq.size,
+		.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+	};
+
+	if (vkAllocateMemory(device, &allocInfo, nullptr, &vboMemory) != VK_SUCCESS)
+		throw std::exception("Failed to allocate vertex buffer memory");
+
+	vkBindBufferMemory(device, vbo, vboMemory, 0);
+}
+
+uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+	VkPhysicalDeviceMemoryProperties memProp;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProp);
+
+	for (uint32_t i = 0; i < memProp.memoryTypeCount; ++i)
+	{
+		bool rightType = typeFilter & (1 << i);
+		bool rightFlag = (memProp.memoryTypes[i].propertyFlags & properties) == properties;
+		if (rightType && rightFlag)
+			return i;
+	}
+
+	throw std::exception("Failed to find suitable memory type");
 }
 
 int main()
