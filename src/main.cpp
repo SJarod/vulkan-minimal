@@ -91,13 +91,16 @@ public:
 	}
 };
 
+// windowing
 void windowInit();
+// rendering instance initialization
 void vulkanInit();
 void vulkanDestroy();
 void vulkanCreate();
 void vulkanDebugMessenger();
 void vulkanExtensions();
 void vulkanLayers();
+// devices
 bool isDeviceSuitable(VkPhysicalDevice pdevice);
 void vulkanPhysicalDevice();
 using VkQueueFamilyIndex = std::optional<uint32_t>;
@@ -115,6 +118,7 @@ struct VkQueueFamilyIndices
  */
 VkQueueFamilyIndices findQueueFamilies(VkPhysicalDevice pdevice);
 void vulkanLogicalDevice();
+// surface and swapchain
 void vulkanSurface(GLFWwindow* window);
 bool checkDeviceExtensionSupport(VkPhysicalDevice pdevice);
 struct VkSwapchainSupportDetails
@@ -128,6 +132,7 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>
 VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availableModes);
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 void vulkanSwapchain();
+// pipeline
 void vulkanImageViews();
 void vulkanGraphicsPipeline();
 VkShaderModule createShaderModule(const std::vector<char>& code);
@@ -137,7 +142,10 @@ void vulkanCommandPool();
 void vulkanCommandBuffer();
 void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex);
 void drawFrame();
+// multithreading
 void vulkanMultithreadObjects();
+// vertex buffer object
+void vulkanVertexBuffer();
 
 GLFWwindow* window;
 VkInstance instance;
@@ -161,6 +169,7 @@ VkCommandBuffer commandBuffer;
 VkSemaphore renderReadySemaphore;
 VkSemaphore renderDoneSemaphore;
 VkFence renderOnceFence;
+VkBuffer vbo;
 
 void windowInit()
 {
@@ -180,6 +189,8 @@ void vulkanInit()
 
 void vulkanDestroy()
 {
+	vkDestroyBuffer(device, vbo, nullptr);
+
 	vkDestroySemaphore(device, renderReadySemaphore, nullptr);
 	vkDestroySemaphore(device, renderDoneSemaphore, nullptr);
 	vkDestroyFence(device, renderOnceFence, nullptr);
@@ -1006,6 +1017,20 @@ const std::vector<Vertex> vertices = {
 	{ {-0.5f, 0.5f}, Color::blue }
 };
 
+void vulkanVertexBuffer()
+{
+	VkBufferCreateInfo createInfo = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.flags = 0,
+		.size = sizeof(Vertex) * vertices.size(),
+		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
+	};
+
+	if (vkCreateBuffer(device, &createInfo, nullptr, &vbo) != VK_SUCCESS)
+		throw std::exception("Failed to create vertex buffer");
+}
+
 int main()
 {
 	try
@@ -1028,8 +1053,11 @@ int main()
 		vulkanRenderPass();
 		vulkanGraphicsPipeline();
 		vulkanFramebuffers();
+		
 		vulkanCommandPool();
+		vulkanVertexBuffer();
 		vulkanCommandBuffer();
+
 		vulkanMultithreadObjects();
 
 		while (!glfwWindowShouldClose(window))
