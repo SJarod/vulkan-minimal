@@ -5,11 +5,13 @@
 #include <optional>
 #include <set>
 #include <limits>
+#include <array>
 
 #include <iostream>
 #include <fstream>
 
 #include "mathematics.hpp"
+#include "types/color.hpp"
 
 #ifndef NDEBUG
 const std::vector<const char*> validationLayers = {
@@ -46,6 +48,48 @@ static std::vector<char> readBinaryFile(const std::string& filename)
 	file.close();
 	return buffer;
 }
+
+class Vertex
+{
+public:
+	// 2 attributes
+	vec2 position;
+	Color color;
+
+	// binding the data to the vertex shader
+	static VkVertexInputBindingDescription getBindingDescription()
+	{
+		// describe the buffer data
+		VkVertexInputBindingDescription desc = {
+			.binding = 0,
+			.stride = sizeof(Vertex),
+			// update every vertex (opposed to VK_VERTEX_INPUT_RATE_INSTANCE)
+			.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+		};
+
+		return desc;
+	}
+
+	// 2 attributes descripction
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescription()
+	{
+		// attribute pointer
+		std::array<VkVertexInputAttributeDescription, 2> desc;
+		desc[0] = {
+			.location = 0,
+			.binding = 0,
+			.format = VK_FORMAT_R32G32_SFLOAT,
+			.offset = offsetof(Vertex, position)
+		};
+		desc[1] = {
+			.location = 1,
+			.binding = 0,
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.offset = offsetof(Vertex, color)
+		};
+		return desc;
+	}
+};
 
 void windowInit();
 void vulkanInit();
@@ -601,13 +645,15 @@ void vulkanGraphicsPipeline()
 		.pDynamicStates = dynamicStates.data()
 	};
 
-	//vertex buffer
+	//vertex buffer (enabling the binding for our Vertex structure)
+	auto binding = Vertex::getBindingDescription();
+	auto attribs = Vertex::getAttributeDescription();
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 0,
-		.pVertexBindingDescriptions = nullptr,
-		.vertexAttributeDescriptionCount = 0,
-		.pVertexAttributeDescriptions = nullptr
+		.vertexBindingDescriptionCount = 1,
+		.pVertexBindingDescriptions = &binding,
+		.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribs.size()),
+		.pVertexAttributeDescriptions = attribs.data()
 	};
 
 	//draw mode
@@ -952,6 +998,13 @@ void vulkanMultithreadObjects()
 	if (vkCreateFence(device, &fenceCreateInfo, nullptr, &renderOnceFence) != VK_SUCCESS)
 		throw std::exception("Failed to create fence");
 }
+
+// creating a vertex buffer
+const std::vector<Vertex> vertices = {
+	{ {0.0f, -0.5f}, Color::red },
+	{ {0.5f,  0.5f}, Color::green },
+	{ {-0.5f, 0.5f}, Color::blue }
+};
 
 int main()
 {
