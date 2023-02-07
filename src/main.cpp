@@ -1026,6 +1026,7 @@ void vulkanMultithreadObjects()
 
 void vulkanVertexBuffer()
 {
+	// TODO : staging buffers for better performance (https://vulkan-tutorial.com/en/Vertex_buffers/Staging_buffer)
 	VkBufferCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.flags = 0,
@@ -1055,9 +1056,9 @@ void vulkanVertexBuffer()
 	// filling the VBO (bind and unbind CPU accessible memory)
 	void* data;
 	vkMapMemory(device, vboMemory, 0, createInfo.size, 0, &data);
-	// flush memory
+	// TODO : flush memory
 	memcpy(data, vertices.data(), (size_t)createInfo.size);
-	// invalidate memory before reading
+	// TODO : invalidate memory before reading in the pipeline
 	vkUnmapMemory(device, vboMemory);
 }
 
