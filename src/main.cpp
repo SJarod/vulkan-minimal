@@ -1047,6 +1047,14 @@ void vulkanVertexBuffer()
 		throw std::exception("Failed to allocate vertex buffer memory");
 
 	vkBindBufferMemory(device, vbo, vboMemory, 0);
+
+	// filling the VBO (bind and unbind CPU accessible memory)
+	void* data;
+	vkMapMemory(device, vboMemory, 0, createInfo.size, 0, &data);
+	// flush memory
+	memcpy(data, vertices.data(), (size_t)createInfo.size);
+	// invalidate memory before reading
+	vkUnmapMemory(device, vboMemory);
 }
 
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
