@@ -91,6 +91,13 @@ public:
 	}
 };
 
+// creating a vertex buffer
+const std::vector<Vertex> vertices = {
+	{ {0.0f, -0.5f}, Color::red },
+	{ {0.5f,  0.5f}, Color::green },
+	{ {-0.5f, 0.5f}, Color::blue }
+};
+
 // windowing
 void windowInit();
 // rendering instance initialization
@@ -926,6 +933,10 @@ void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex)
 	vkCmdBeginRenderPass(cb, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
+	VkBuffer vbos[] = { vbo };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(cb, 0, 1, vbos, offsets);
+
 	VkViewport viewport = {
 		.x = 0.f,
 		.y = 0.f,
@@ -944,7 +955,7 @@ void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex)
 
 	vkCmdSetScissor(cb, 0, 1, &scissor);
 
-	vkCmdDraw(cb, 3, 1, 0, 0);
+	vkCmdDraw(cb, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
 	vkCmdEndRenderPass(cb);
 
@@ -1012,13 +1023,6 @@ void vulkanMultithreadObjects()
 	if (vkCreateFence(device, &fenceCreateInfo, nullptr, &renderOnceFence) != VK_SUCCESS)
 		throw std::exception("Failed to create fence");
 }
-
-// creating a vertex buffer
-const std::vector<Vertex> vertices = {
-	{ {0.0f, -0.5f}, Color::red },
-	{ {0.5f,  0.5f}, Color::green },
-	{ {-0.5f, 0.5f}, Color::blue }
-};
 
 void vulkanVertexBuffer()
 {
