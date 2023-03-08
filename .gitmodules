@@ -16,3 +16,6 @@
 [submodule "externals/spirv-headers"]
 	path = externals/spirv-headers
 	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+[submodule "externals/glad"]
+	path = externals/glad
+	url = https://github.com/Dav1dde/glad.git
