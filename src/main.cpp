@@ -627,8 +627,8 @@ void vulkanImageViews()
 
 void vulkanGraphicsPipeline()
 {
-	std::vector<char> vs = readBinaryFile("shaders/vstriangle.spv");
-	std::vector<char> fs = readBinaryFile("shaders/fstriangle.spv");
+	std::vector<char> vs = readBinaryFile("shaders/triangle.vert.spv");
+	std::vector<char> fs = readBinaryFile("shaders/triangle.frag.spv");
 
 	VkShaderModule vsModule = createShaderModule(vs);
 	VkShaderModule fsModule = createShaderModule(fs);
