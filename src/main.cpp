@@ -230,7 +230,7 @@ void vulkanCreate()
 		.pApplicationName = "Hello triangle",
 		.applicationVersion = VK_MAKE_VERSION(1, 0, 0),
 		.engineVersion = VK_MAKE_VERSION(1, 0, 0),
-		.apiVersion = VK_API_VERSION_1_0
+		.apiVersion = VK_API_VERSION_1_3
 	};
 
 	uint32_t glfwExtensionCount = 0;
