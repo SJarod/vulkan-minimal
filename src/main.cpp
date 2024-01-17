@@ -107,7 +107,13 @@ const std::vector<Vertex> vertices = {
 };
 
 // windowing
-void windowInit();
+
+void init_wsi();
+void terminate_wsi();
+
+void create_window();
+void destroy_window();
+
 // rendering instance initialization
 void vulkanInit();
 void vulkanDestroy();
@@ -115,6 +121,7 @@ void vulkanCreate();
 void vulkanDebugMessenger();
 void vulkanExtensions();
 void vulkanLayers();
+
 // devices
 bool isDeviceSuitable(VkPhysicalDevice pdevice);
 void vulkanPhysicalDevice();
@@ -188,7 +195,7 @@ VkFence renderOnceFence;
 VkBuffer vbo;
 VkDeviceMemory vboMemory;
 
-void windowInit()
+void create_window()
 {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -1080,11 +1087,16 @@ uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 
 int main()
 {
+	// TODO : descriptor sets (mvp)
+	// TODO : textures
+	// TODO : better instance and device creation
+	// TODO : better pipeline creation
+	
 	try
 	{
 		glfwInit();
 
-		windowInit();
+		create_window();
 		vulkanInit();
 		vulkanExtensions();
 		vulkanLayers();
