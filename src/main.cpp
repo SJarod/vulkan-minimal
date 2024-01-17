@@ -1,27 +1,35 @@
 #include <glad/vulkan.h>
 #include <GLFW/glfw3.h>
 
+
 #include <vector>
 #include <optional>
 #include <set>
 #include <limits>
 #include <array>
 
+
 #include <iostream>
 #include <fstream>
+
 
 #include "mathematics.hpp"
 #include "types/color.hpp"
 
+
+
+const std::vector<const char*> layers = {
 #ifndef NDEBUG
-const std::vector<const char*> validationLayers = {
-	"VK_LAYER_KHRONOS_validation"
-};
+	"VK_LAYER_KHRONOS_validation",
 #endif
+    "VK_LAYER_LUNARG_monitor",
+};
+
 
 const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
+
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -246,12 +254,8 @@ void vulkanCreate()
 	VkInstanceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &appInfo,
-#ifdef NDEBUG
-		.enabledLayerCount = 0,
-#else
-		.enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
-		.ppEnabledLayerNames = validationLayers.data(),
-#endif
+		.enabledLayerCount = static_cast<uint32_t>(layers.size()),
+		.ppEnabledLayerNames = layers.data(),
 		.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size()),
 		.ppEnabledExtensionNames = enabledExtensions.data()
 	};
@@ -415,12 +419,8 @@ void vulkanLogicalDevice()
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
 		.pQueueCreateInfos = queueCreateInfos.data(),
-#ifdef NDEBUG
-		.enabledLayerCount = 0,
-#else
-		.enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
-		.ppEnabledLayerNames = validationLayers.data(),
-#endif
+		.enabledLayerCount = static_cast<uint32_t>(layers.size()),
+		.ppEnabledLayerNames = layers.data(),
 		.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
 		.ppEnabledExtensionNames = deviceExtensions.data()
 	};
