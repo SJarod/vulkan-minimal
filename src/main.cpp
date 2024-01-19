@@ -31,7 +31,7 @@ const std::vector<const char*> deviceExtensions = {
 };
 
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
 	const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
@@ -41,7 +41,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
-static std::vector<char> readBinaryFile(const std::string& filename)
+static std::vector<char> read_binary_file(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 	if (!file.is_open())
@@ -287,7 +287,7 @@ void vulkanDebugMessenger()
 			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
 			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
 			,
-		.pfnUserCallback = debugCallback,
+		.pfnUserCallback = debug_callback,
 		.pUserData = nullptr
 	};
 
@@ -634,8 +634,8 @@ void vulkanImageViews()
 
 void vulkanGraphicsPipeline()
 {
-	std::vector<char> vs = readBinaryFile("shaders/triangle.vert.spv");
-	std::vector<char> fs = readBinaryFile("shaders/triangle.frag.spv");
+	std::vector<char> vs = read_binary_file("shaders/triangle.vert.spv");
+	std::vector<char> fs = read_binary_file("shaders/triangle.frag.spv");
 
 	VkShaderModule vsModule = createShaderModule(vs);
 	VkShaderModule fsModule = createShaderModule(fs);
