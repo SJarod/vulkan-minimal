@@ -106,13 +106,6 @@ const std::vector<Vertex> vertices = {
 	{ {-0.5f, 0.5f}, Color::blue }
 };
 
-// windowing
-
-void init_wsi();
-void terminate_wsi();
-
-void create_window();
-void destroy_window();
 
 // rendering instance initialization
 void vulkanInit();
@@ -195,12 +188,6 @@ VkFence renderOnceFence;
 VkBuffer vbo;
 VkDeviceMemory vboMemory;
 
-void create_window()
-{
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-	window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
-}
 
 void vulkanInit()
 {
@@ -1126,18 +1113,20 @@ int main()
 		}
 
 		vkDeviceWaitIdle(device);
+
+			vulkanDestroy();
+
+	glfwDestroyWindow(window);
+
+	glfwTerminate();
+
+
 	}
 	catch (const std::exception& ex)
 	{
 		std::cerr << ex.what() << std::endl;
 		return EXIT_FAILURE;
 	}
-
-	vulkanDestroy();
-
-	glfwDestroyWindow(window);
-
-	glfwTerminate();
 
 	return EXIT_SUCCESS;
 }

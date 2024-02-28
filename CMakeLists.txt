@@ -14,8 +14,9 @@ endif()
 project(vulkan-tutorial)
 
 add_subdirectory(externals)
+add_subdirectory(internal)
+add_subdirectory(src)
 
-add_executable(vk src/main.cpp)
 target_include_directories(vk PRIVATE include)
 target_link_libraries(vk
 	PUBLIC glad_vk_13
