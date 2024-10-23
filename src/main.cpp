@@ -1,9 +1,9 @@
-# TODO : render in fbo instead of swapchain image directly (google search "bgra vs rgba")
-# TODO : swapchain image format : unorm
-# TODO : present mode fifo to lock fps to screen refresh rate
-# TODO : faire comme une header only lib
-# TODO : ne plus utiliser glad
-# TODO : glslc automatique
+// TODO : render in fbo instead of swapchain image directly (google search "bgra vs rgba")
+// TODO : swapchain image format : unorm
+// TODO : present mode fifo to lock fps to screen refresh rate
+// TODO : faire comme une header only lib
+// TODO : ne plus utiliser glad
+// TODO : glslc automatique
 
 
 #include <glad/vulkan.h>
