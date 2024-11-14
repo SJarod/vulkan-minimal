@@ -2,6 +2,8 @@
 
 #include "vulkan_tutorial.hpp"
 
+// TODO : fix compilation
+
 int main()
 {
 	// TODO : descriptor sets (mvp)
