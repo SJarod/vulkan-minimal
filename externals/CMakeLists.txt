@@ -10,8 +10,8 @@ glad_add_library(glad_vk_13
 # glfw
 add_subdirectory(glfw)
 
-# libraries
-add_subdirectory(libraries)
+# mathematics
+add_subdirectory(mathematics)
 
 # glslc
 add_subdirectory(glslang)
