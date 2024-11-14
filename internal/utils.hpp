@@ -1,6 +1,11 @@
 #pragma once
 
-static std::vector<char> read_binary_file(const std::string& filename)
+#include <vector>
+#include <string>
+#include <exception>
+#include <fstream>
+
+static inline std::vector<char> read_binary_file(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 	if (!file.is_open())

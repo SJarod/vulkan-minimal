@@ -1,5 +1,10 @@
 #pragma once
 
+#include <vector>
+
+#include "vertex.hpp"
+
+
 // layers
 const std::vector<const char*> layers = {
 #ifndef NDEBUG

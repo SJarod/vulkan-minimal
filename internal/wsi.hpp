@@ -1,6 +1,8 @@
 #pragma once
 
+#include <glad/vulkan.h>
 #include <GLFW/glfw3.h>
+
 
 // Window System Integration
 
@@ -27,4 +29,16 @@ inline GLFWwindow* create_window()
 inline void destroy_window(GLFWwindow* window)
 {
 	glfwDestroyWindow(window);
+}
+
+
+// Window surface
+
+/**
+ * return success
+ */
+inline void wsi_create_presentation_surface(void* instance, void* window, void* surface)
+{
+	if (glfwCreateWindowSurface(*(VkInstance*)instance, (GLFWwindow*)window, nullptr, (VkSurfaceKHR*)surface) != VK_SUCCESS)
+		throw std::exception("Failed to create window surface");
 }
