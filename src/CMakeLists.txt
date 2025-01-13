@@ -9,6 +9,7 @@ target_sources(${component}
 
 target_link_libraries(${component}
 	PUBLIC internal
+	PUBLIC glslc # ensure glslc is built before vk
 )
 
 set(SHADER_SOURCES
@@ -19,7 +20,6 @@ set(SHADER_SOURCES
 get_target_property(glslc_BINARY_DIR glslc_exe BINARY_DIR)
 set(glslc_dir ${glslc_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 
-if (EXISTS "${glslc_dir}/glslc.exe")
 add_custom_command(TARGET ${component}
 	POST_BUILD
 	COMMAND echo ${component}.exe built, looking for glslc.exe in ${glslc_dir}
@@ -43,4 +43,3 @@ foreach(SOURCE ${SHADER_SOURCES})
 	)
 	MATH(EXPR SHADER_I "${SHADER_I} + 1")
 endforeach()
-endif()
