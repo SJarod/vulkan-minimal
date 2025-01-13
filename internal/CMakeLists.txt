@@ -4,17 +4,16 @@ add_library(${component} INTERFACE "")
 
 set_property(TARGET ${component}
     PROPERTY PUBLIC_HEADER
-    data.hpp
     utils.hpp
     vertex.hpp
-    vulkan_tutorial.hpp
+    vulkan_minimal.hpp
     wsi.hpp
 )
 
 target_link_libraries(${component}
     INTERFACE glfw
-    INTERFACE glad_vk_13
-    INTERFACE mathematics
+    INTERFACE volk
+    INTERFACE glm
 )
 
 target_include_directories(${component} INTERFACE "${CMAKE_CURRENT_LIST_DIR}")

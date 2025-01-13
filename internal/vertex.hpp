@@ -1,12 +1,11 @@
 #pragma once
 
-#include <mathematics/mathematics.hpp>
-#include <mathematics/types/color.hpp>
+#include <glm/glm.hpp>
 
 class Vertex
 {
-public:
-	// 2 attributes
-	vec2 position;
-	Color color;
+  public:
+    // 2 attributes
+    glm::vec3 position;
+    glm::vec4 color;
 };

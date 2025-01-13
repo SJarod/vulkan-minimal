@@ -1,4 +1,4 @@
-# **Vulkan-tutorial**
+# **Vulkan-Minimal**
 
 Rendering a simple triangle with Vulkan.
 

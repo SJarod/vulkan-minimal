@@ -11,7 +11,7 @@ if(NOT GIT_RESULT EQUAL "0")
 	message(FATAL_ERROR "Failed to update submodules, ${GIT_RESULT}")
 endif()
 
-project(vulkan-tutorial)
+project(vulkan-minimal)
 
 add_subdirectory(externals)
 add_subdirectory(internal)
