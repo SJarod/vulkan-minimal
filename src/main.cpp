@@ -12,7 +12,7 @@ int main()
 
     int width = 1366, height = 768;
 
-    GLFWwindow *window = WSI::create_window(width, height);
+    GLFWwindow *window = WSI::create_window(width, height, "Vulkan Minimal");
     WSI::make_context_current(window);
 
     RHI::load_symbols();
