@@ -21,13 +21,13 @@ inline void terminate()
 
 // Window creation
 
-inline GLFWwindow *create_window(int width, int height)
+inline GLFWwindow *create_window(int width, int height, const char* windowName)
 {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     // no api specified to create vulkan context
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    GLFWwindow *window = glfwCreateWindow(width, height, "Vulkan Minimal", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(width, height, windowName, nullptr, nullptr);
     return window;
 }
 inline void destroy_window(GLFWwindow *window)
