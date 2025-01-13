@@ -139,16 +139,63 @@ inline VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance instance)
         .pfnUserCallback = debug_messenger_callback,
         .pUserData = nullptr};
 
-    VkDebugUtilsMessengerEXT debug_messenger_callback;
-    VkResult res = vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debug_messenger_callback);
+    VkDebugUtilsMessengerEXT messenger;
+    VkResult res = vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &messenger);
     if (res != VK_SUCCESS)
-        std::cerr << "Failed to set up debug messenger : " << res << std::endl;
+        std::cerr << "Failed create debug messenger : " << res << std::endl;
 
-    return debug_messenger_callback;
+    return messenger;
 }
-inline void destroy_debug_messenger(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger_callback)
+inline void destroy_debug_messenger(VkInstance instance, VkDebugUtilsMessengerEXT messenger)
 {
-    vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger_callback, nullptr);
+    vkDestroyDebugUtilsMessengerEXT(instance, messenger, nullptr);
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report_callback(VkDebugReportFlagsEXT flags,
+                                                            VkDebugReportObjectTypeEXT objectType, uint64_t object,
+                                                            size_t location, int32_t messageCode,
+                                                            const char *pLayerPrefix, const char *pMessage,
+                                                            void *pUserData)
+{
+    std::cerr << "[Debug Report Callback, ";
+    if (flags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
+        std::cerr << "INFORMATION, ";
+    else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+        std::cerr << "WARNING, ";
+    else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
+        std::cerr << "PERFORMANCE WARNING, ";
+    else if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+        std::cerr << "ERROR, ";
+    else if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT)
+        std::cerr << "DEBUG, ";
+
+    std::cerr << objectType << ", " << object << ", " << messageCode << ", ";
+
+    std::cerr << pMessage << std::endl;
+    return VK_FALSE;
+};
+
+inline VkDebugReportCallbackEXT create_debug_report_callback(VkInstance instance)
+{
+    VkDebugReportCallbackCreateInfoEXT createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+        .flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
+                 VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT |
+                 VK_DEBUG_REPORT_DEBUG_BIT_EXT,
+        .pfnCallback = debug_report_callback,
+        .pUserData = nullptr,
+    };
+
+    VkDebugReportCallbackEXT callback;
+    VkResult res = vkCreateDebugReportCallbackEXT(instance, &createInfo, nullptr, &callback);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to create debug report callback : " << res << std::endl;
+
+    return callback;
+}
+inline void destroy_debug_report_callback(VkInstance instance, VkDebugReportCallbackEXT callback)
+{
+    vkDestroyDebugReportCallbackEXT(instance, callback, nullptr);
 }
 } // namespace Debug
 } // namespace Instance
