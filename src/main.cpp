@@ -6,7 +6,6 @@ int main()
 {
     // TODO : descriptor sets (mvp)
     // TODO : textures
-    // TODO : better instance and device creation
     // TODO : better pipeline creation
 
     WSI::init();
@@ -49,13 +48,13 @@ int main()
     VkQueue graphicsQueue = RHI::Device::Queue::get_device_queue(device, graphicsFamilyIndex.value(), 0);
     VkQueue presentQueue = RHI::Device::Queue::get_device_queue(device, presentFamilyIndex.value(), 0);
 
-    VkSwapchainKHR swapchain = RHI::Presentation::SwapChain::create_swap_chain(physicalDevice, device, surface);
-    std::vector<VkImage> swapchainImages = RHI::Presentation::SwapChain::get_swap_chain_images(device, swapchain);
     std::vector<VkSurfaceFormatKHR> formats =
         RHI::Presentation::Surface::get_surface_available_formats(physicalDevice, surface);
-    // TODO : arbitrary values
     std::optional<VkSurfaceFormatKHR> surfaceFormat = RHI::Presentation::Surface::find_surface_format(
-        formats, VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
+        formats, VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
+    VkSwapchainKHR swapchain =
+        RHI::Presentation::SwapChain::create_swap_chain(physicalDevice, device, surface, surfaceFormat.value());
+    std::vector<VkImage> swapchainImages = RHI::Presentation::SwapChain::get_swap_chain_images(device, swapchain);
     std::vector<VkImageView> swapchainImageViews = RHI::Presentation::SwapChain::create_swap_chain_image_views(
         device, swapchain, swapchainImages, surfaceFormat->format);
 

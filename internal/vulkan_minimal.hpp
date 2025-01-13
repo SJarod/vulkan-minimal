@@ -1,7 +1,6 @@
 #pragma once
 
 // TODO : render in fbo instead of swapchain image directly (google search "bgra vs rgba")
-// TODO : swapchain image format : unorm
 
 #include <iostream>
 
@@ -495,14 +494,12 @@ inline VkExtent2D find_extent(const VkSurfaceCapabilitiesKHR &capabilities, uint
 
 namespace SwapChain
 {
-inline VkSwapchainKHR create_swap_chain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface)
+inline VkSwapchainKHR create_swap_chain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface,
+                                        VkSurfaceFormatKHR surfaceFormat)
 {
     VkSurfaceCapabilitiesKHR capabilities = Surface::get_surface_capabilities(physicalDevice, surface);
 
     std::vector<VkSurfaceFormatKHR> formats = Surface::get_surface_available_formats(physicalDevice, surface);
-    // TODO : arbitrary values
-    std::optional<VkSurfaceFormatKHR> surfaceFormat =
-        Surface::find_surface_format(formats, VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
 
     std::vector<VkPresentModeKHR> presentModes = Surface::get_surface_available_present_modes(physicalDevice, surface);
     std::optional<VkPresentModeKHR> presentMode =
@@ -517,8 +514,8 @@ inline VkSwapchainKHR create_swap_chain(VkPhysicalDevice physicalDevice, VkDevic
     VkSwapchainCreateInfoKHR createInfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
                                            .surface = surface,
                                            .minImageCount = imageCount,
-                                           .imageFormat = surfaceFormat->format,
-                                           .imageColorSpace = surfaceFormat->colorSpace,
+                                           .imageFormat = surfaceFormat.format,
+                                           .imageColorSpace = surfaceFormat.colorSpace,
                                            .imageExtent = extent,
                                            .imageArrayLayers = 1,
                                            .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
