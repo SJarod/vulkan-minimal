@@ -19,3 +19,12 @@
 [submodule "externals/glslang"]
 	path = externals/glslang
 	url = https://github.com/KhronosGroup/glslang.git
+[submodule "externals/Vulkan-ValidationLayers"]
+	path = externals/Vulkan-ValidationLayers
+	url = https://github.com/KhronosGroup/Vulkan-ValidationLayers.git
+[submodule "externals/Vulkan-Headers"]
+	path = externals/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "externals/Vulkan-Utility-Libraries"]
+	path = externals/Vulkan-Utility-Libraries
+	url = https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git

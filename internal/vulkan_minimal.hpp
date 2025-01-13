@@ -48,6 +48,28 @@ inline std::array<VkVertexInputAttributeDescription, 2> get_vertex_attribute_des
 
 namespace Instance
 {
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report_callback_instance(VkDebugReportFlagsEXT flags,
+                                                                     VkDebugReportObjectTypeEXT objectType,
+                                                                     uint64_t object, size_t location,
+                                                                     int32_t messageCode, const char *pLayerPrefix,
+                                                                     const char *pMessage, void *pUserData)
+{
+    std::cerr << "[Debug Report Callback Instance, ";
+    if (flags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
+        std::cerr << "INFORMATION";
+    else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+        std::cerr << "WARNING";
+    else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
+        std::cerr << "PERFORMANCE WARNING";
+    else if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+        std::cerr << "ERROR";
+    else if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT)
+        std::cerr << "DEBUG";
+
+    std::cerr << "] : " << pMessage << std::endl;
+    return VK_FALSE;
+};
+
 inline VkInstance create_instance(std::vector<const char *> layers, std::vector<const char *> instanceExtensions)
 {
     VkApplicationInfo appInfo = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -57,8 +79,16 @@ inline VkInstance create_instance(std::vector<const char *> layers, std::vector<
                                  .engineVersion = VK_MAKE_VERSION(0, 0, 0),
                                  .apiVersion = VK_API_VERSION_1_3};
 
-    // TODO : debug report
+    VkDebugReportCallbackCreateInfoEXT debugReportCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+        .flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
+                 VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT |
+                 VK_DEBUG_REPORT_DEBUG_BIT_EXT,
+        .pfnCallback = debug_report_callback_instance,
+        .pUserData = nullptr,
+    };
     VkInstanceCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                                       .pNext = &debugReportCreateInfo,
                                        .pApplicationInfo = &appInfo,
                                        .enabledLayerCount = static_cast<uint32_t>(layers.size()),
                                        .ppEnabledLayerNames = layers.data(),
