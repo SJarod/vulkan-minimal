@@ -21,8 +21,8 @@ int main()
     RHI::Instance::enumerate_available_instance_extensions();
 
     const std::vector<const char *> layers = {
-        // "VK_LAYER_KHRONOS_validation",
-        //"VK_LAYER_LUNARG_monitor",
+        "VK_LAYER_KHRONOS_validation",
+        // "VK_LAYER_LUNARG_monitor",
     };
     std::vector<const char *> instanceExtensions = WSI::get_required_extensions();
     instanceExtensions.push_back("VK_EXT_debug_utils");

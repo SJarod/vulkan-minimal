@@ -169,7 +169,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report_callback(VkDebugReportFlagsEX
     else if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT)
         std::cerr << "DEBUG, ";
 
-    std::cerr << objectType << ", " << object << ", " << messageCode << ", ";
+    std::cerr << objectType << ", " << object << ", " << messageCode << "] : ";
 
     std::cerr << pMessage << std::endl;
     return VK_FALSE;
