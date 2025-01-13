@@ -18,13 +18,15 @@ set(SHADER_SOURCES
 
 get_target_property(glslc_BINARY_DIR glslc_exe BINARY_DIR)
 set(glslc_dir ${glslc_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+
+if (EXISTS "${glslc_dir}/glslc.exe")
 add_custom_command(TARGET ${component}
 	POST_BUILD
 	COMMAND echo ${component}.exe built, looking for glslc.exe in ${glslc_dir}
 )
 
 list(LENGTH SHADER_SOURCES SHADER_COUNT)
-set(SHADER_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/shaders)
+set(SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/shaders")
 add_custom_command(TARGET ${component}
 	POST_BUILD
 	COMMAND echo Compiling shader sources in ${SHADER_OUTPUT_DIR}...
@@ -32,7 +34,7 @@ add_custom_command(TARGET ${component}
 )
 set(SHADER_I 1)
 foreach(SOURCE ${SHADER_SOURCES})
-	set(SHADER_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${SOURCE}.spv)
+	set(SHADER_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/${SOURCE}.spv")
 	add_custom_command(TARGET ${component}
 		POST_BUILD
 		COMMAND echo [${SHADER_I}/${SHADER_COUNT}] ${SOURCE}...
@@ -41,3 +43,4 @@ foreach(SOURCE ${SHADER_SOURCES})
 	)
 	MATH(EXPR SHADER_I "${SHADER_I} + 1")
 endforeach()
+endif()
