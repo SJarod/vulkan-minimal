@@ -16,13 +16,16 @@ int main()
     WSI::make_context_current(window);
 
     RHI::load_symbols();
-    RHI::Instance::enumerate_available_layers();
+    std::vector<std::string> availableLayers = RHI::Instance::enumerate_available_layers();
     RHI::Instance::enumerate_available_instance_extensions();
 
-    const std::vector<const char *> layers = {
-        "VK_LAYER_KHRONOS_validation",
-        // "VK_LAYER_LUNARG_monitor",
-    };
+    std::vector<const char *> layers;
+    if (std::find(availableLayers.begin(), availableLayers.end(), "VK_LAYER_KHRONOS_validation") !=
+        availableLayers.end())
+        layers.emplace_back("VK_LAYER_KHRONOS_validation");
+    if (std::find(availableLayers.begin(), availableLayers.end(), "VK_LAYER_LUNARG_monitor") != availableLayers.end())
+        layers.emplace_back("VK_LAYER_LUNARG_monitor");
+
     std::vector<const char *> instanceExtensions = WSI::get_required_extensions();
     instanceExtensions.push_back("VK_EXT_debug_utils");
     instanceExtensions.push_back("VK_EXT_debug_report");

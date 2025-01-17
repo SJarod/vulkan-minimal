@@ -1,5 +1,7 @@
 add_subdirectory(glfw)
 
+add_subdirectory(Vulkan-Headers)
+
 add_subdirectory(volk)
 
 add_subdirectory(glm)
@@ -19,8 +21,6 @@ if (MSVC)
     set(SHADERC_ENABLE_SHARED_CRT ON)
 endif(MSVC)
 add_subdirectory(shaderc)
-
-add_subdirectory(Vulkan-Headers)
 
 set(UPDATE_DEPS ON)
 add_subdirectory(Vulkan-Utility-Libraries)

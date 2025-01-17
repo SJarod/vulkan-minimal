@@ -107,15 +107,21 @@ inline void destroy_instance(VkInstance &instance)
 {
     vkDestroyInstance(instance, nullptr);
 }
-inline void enumerate_available_layers()
+inline std::vector<std::string> enumerate_available_layers()
 {
     uint32_t layerCount = 0;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
     std::vector<VkLayerProperties> layers(layerCount);
+    std::vector<std::string> layerNames(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
     std::cout << "available layers : " << layerCount << '\n';
     for (const auto &layer : layers)
+    {
         std::cout << '\t' << layer.layerName << '\n';
+        layerNames.emplace_back(layer.layerName);
+    }
+
+    return layerNames;
 }
 inline void enumerate_available_instance_extensions()
 {
