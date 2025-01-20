@@ -56,7 +56,8 @@ int main()
     std::optional<VkSurfaceFormatKHR> surfaceFormat = RHI::Presentation::Surface::find_surface_format(
         formats, VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
     VkSwapchainKHR swapchain =
-        RHI::Presentation::SwapChain::create_swap_chain(physicalDevice, device, surface, surfaceFormat.value());
+        RHI::Presentation::SwapChain::create_swap_chain(physicalDevice, device, surface, surfaceFormat.value(),
+                                                        static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     std::vector<VkImage> swapchainImages = RHI::Presentation::SwapChain::get_swap_chain_images(device, swapchain);
     std::vector<VkImageView> swapchainImageViews = RHI::Presentation::SwapChain::create_swap_chain_image_views(
         device, swapchain, swapchainImages, surfaceFormat->format);
@@ -72,17 +73,17 @@ int main()
     VkCommandPool commandPool = RHI::Command::create_command_pool(device, graphicsFamilyIndex.value());
 
     uint32_t bufferingType = 2;
-    std::vector<VkCommandBuffer> commandBuffer =
+    std::vector<VkCommandBuffer> commandBuffers =
         RHI::Command::allocate_command_buffers(device, commandPool, bufferingType);
 
-    std::vector<VkSemaphore> drawSemaphore;
-    std::vector<VkSemaphore> presentSemaphore;
-    std::vector<VkFence> inFlightFence;
+    std::vector<VkSemaphore> acquireSemaphores;
+    std::vector<VkSemaphore> renderSemaphores;
+    std::vector<VkFence> inFlightFences;
     for (int i = 0; i < bufferingType; ++i)
     {
-        drawSemaphore.emplace_back(RHI::Parallel::create_semaphore(device));
-        presentSemaphore.emplace_back(RHI::Parallel::create_semaphore(device));
-        inFlightFence.emplace_back(RHI::Parallel::create_fence(device));
+        acquireSemaphores.emplace_back(RHI::Parallel::create_semaphore(device));
+        renderSemaphores.emplace_back(RHI::Parallel::create_semaphore(device));
+        inFlightFences.emplace_back(RHI::Parallel::create_fence(device));
     }
 
     const std::vector<Vertex> vertices = {{{0.0f, -0.5f, 0.f}, {1.f, 0.f, 0.f, 1.f}},
@@ -97,101 +98,25 @@ int main()
     RHI::Memory::copy_data_to_memory(device, memory, vertices.data(), sizeof(Vertex) * vertices.size());
     RHI::Memory::bind_memory_to_buffer(device, vertexBuffer, memory);
 
-    int currentImageIndex = 0;
+    uint32_t backBufferIndex = 0;
     while (!WSI::should_close(window))
     {
         WSI::poll_events();
 
-        vkWaitForFences(device, 1, &inFlightFence[currentImageIndex], VK_TRUE, UINT64_MAX);
-        vkResetFences(device, 1, &inFlightFence[currentImageIndex]);
+        uint32_t imageIndex = RHI::Render::acquire_back_buffer(device, swapchain, acquireSemaphores[backBufferIndex],
+                                                               inFlightFences, backBufferIndex);
 
-        uint32_t imageIndex;
-        vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, drawSemaphore[currentImageIndex], VK_NULL_HANDLE,
-                              &imageIndex);
+        RHI::Render::record_back_buffer(commandBuffers[backBufferIndex], renderPass, framebuffers[backBufferIndex],
+                                        {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}, pipeline,
+                                        vertexBuffer, vertices.size());
+        RHI::Render::submit_back_buffer(commandBuffers[backBufferIndex], acquireSemaphores[backBufferIndex],
+                                        renderSemaphores[backBufferIndex], graphicsQueue,
+                                        inFlightFences[backBufferIndex]);
 
-        vkResetCommandBuffer(commandBuffer[currentImageIndex], 0);
-
-        // record command buffer
-
-        VkCommandBufferBeginInfo commandBufferBeginInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .flags = 0, .pInheritanceInfo = nullptr};
-
-        VkResult res = vkBeginCommandBuffer(commandBuffer[currentImageIndex], &commandBufferBeginInfo);
-        if (res != VK_SUCCESS)
-            std::cerr << "Failed to begin recording command buffer : " << res << std::endl;
-
-        VkClearValue clearColor = {.color = {0.2f, 0.2f, 0.2f, 1.f}};
-
-        VkRenderPassBeginInfo renderPassBeginInfo = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .renderPass = renderPass,
-            .framebuffer = framebuffers[currentImageIndex],
-            .renderArea = {.offset = {0, 0}, .extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}},
-            .clearValueCount = 1,
-            .pClearValues = &clearColor};
-
-        vkCmdBeginRenderPass(commandBuffer[currentImageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(commandBuffer[currentImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-        VkBuffer vbos[] = {vertexBuffer};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer[currentImageIndex], 0, 1, vbos, offsets);
-
-        VkViewport viewport = {.x = 0.f,
-                               .y = 0.f,
-                               .width = static_cast<float>(width),
-                               .height = static_cast<float>(height),
-                               .minDepth = 0.f,
-                               .maxDepth = 1.f};
-
-        vkCmdSetViewport(commandBuffer[currentImageIndex], 0, 1, &viewport);
-
-        VkRect2D scissor = {.offset = {0, 0}, .extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}};
-
-        vkCmdSetScissor(commandBuffer[currentImageIndex], 0, 1, &scissor);
-
-        vkCmdDraw(commandBuffer[currentImageIndex], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-
-        vkCmdEndRenderPass(commandBuffer[currentImageIndex]);
-
-        res = vkEndCommandBuffer(commandBuffer[currentImageIndex]);
-        if (res != VK_SUCCESS)
-            std::cerr << "Failed to record command buffer : " << res << std::endl;
-
-        // draw
-
-        VkSemaphore waitSemaphores[] = {drawSemaphore[currentImageIndex]};
-        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        VkSemaphore signalSemaphores[] = {presentSemaphore[currentImageIndex]};
-        VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                                   .waitSemaphoreCount = 1,
-                                   .pWaitSemaphores = waitSemaphores,
-                                   .pWaitDstStageMask = waitStages,
-                                   .commandBufferCount = 1,
-                                   .pCommandBuffers = &commandBuffer[currentImageIndex],
-                                   .signalSemaphoreCount = 1,
-                                   .pSignalSemaphores = signalSemaphores};
-
-        res = vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence[currentImageIndex]);
-        if (res != VK_SUCCESS)
-            std::cerr << "Failed to submit draw command buffer : " << res << std::endl;
-
-        VkSwapchainKHR swapchains[] = {swapchain};
-        VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                                        .waitSemaphoreCount = 1,
-                                        .pWaitSemaphores = signalSemaphores,
-                                        .swapchainCount = 1,
-                                        .pSwapchains = swapchains,
-                                        .pImageIndices = &imageIndex,
-                                        .pResults = nullptr};
-
-        res = vkQueuePresentKHR(presentQueue, &presentInfo);
-        if (res != VK_SUCCESS)
-            std::cerr << "Failed to present : " << res << std::endl;
+        RHI::Render::present_back_buffer(swapchain, renderSemaphores[backBufferIndex], imageIndex, presentQueue);
 
         WSI::swap_buffers(window);
-
-        currentImageIndex = (currentImageIndex + 1) % bufferingType;
+        backBufferIndex = (backBufferIndex + 1) % bufferingType;
     }
 
     vkDeviceWaitIdle(device);
@@ -201,13 +126,13 @@ int main()
 
     for (int i = 0; i < bufferingType; ++i)
     {
-        RHI::Parallel::destroy_fence(device, inFlightFence[i]);
-        RHI::Parallel::destroy_semaphore(device, presentSemaphore[i]);
-        RHI::Parallel::destroy_semaphore(device, drawSemaphore[i]);
+        RHI::Parallel::destroy_fence(device, inFlightFences[i]);
+        RHI::Parallel::destroy_semaphore(device, renderSemaphores[i]);
+        RHI::Parallel::destroy_semaphore(device, acquireSemaphores[i]);
     }
-    inFlightFence.clear();
-    presentSemaphore.clear();
-    drawSemaphore.clear();
+    inFlightFences.clear();
+    renderSemaphores.clear();
+    acquireSemaphores.clear();
 
     RHI::Command::destroy_command_pool(device, commandPool);
 

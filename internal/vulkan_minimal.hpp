@@ -501,7 +501,7 @@ inline VkExtent2D find_extent(const VkSurfaceCapabilitiesKHR &capabilities, uint
 namespace SwapChain
 {
 inline VkSwapchainKHR create_swap_chain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface,
-                                        VkSurfaceFormatKHR surfaceFormat)
+                                        VkSurfaceFormatKHR surfaceFormat, uint32_t width, uint32_t height)
 {
     VkSurfaceCapabilitiesKHR capabilities = Surface::get_surface_capabilities(physicalDevice, surface);
 
@@ -511,7 +511,7 @@ inline VkSwapchainKHR create_swap_chain(VkPhysicalDevice physicalDevice, VkDevic
     std::optional<VkPresentModeKHR> presentMode =
         Surface::find_surface_present_mode(presentModes, VK_PRESENT_MODE_FIFO_KHR);
 
-    VkExtent2D extent = Surface::find_extent(Surface::get_surface_capabilities(physicalDevice, surface), 1366, 768);
+    VkExtent2D extent = Surface::find_extent(Surface::get_surface_capabilities(physicalDevice, surface), width, height);
 
     uint32_t imageCount = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && capabilities.maxImageCount < imageCount)
@@ -1019,4 +1019,109 @@ inline void copy_data_to_memory(VkDevice device, VkDeviceMemory memory, const vo
     vkUnmapMemory(device, memory);
 }
 } // namespace Memory
+
+namespace Render
+{
+inline uint32_t acquire_back_buffer(VkDevice device, VkSwapchainKHR swapchain, VkSemaphore &acquireSemaphore,
+                                    std::vector<VkFence> &backBufferFences, uint32_t backBufferIndex)
+{
+    uint32_t imageIndex;
+    VkResult res = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &imageIndex);
+    if (res != VK_SUCCESS)
+    {
+        std::cerr << "Failed to acquire next image : " << res << std::endl;
+        return -1;
+    }
+
+    vkWaitForFences(device, 1, &backBufferFences[backBufferIndex], VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &backBufferFences[backBufferIndex]);
+
+    return imageIndex;
+}
+
+inline void record_back_buffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer framebuffer,
+                               VkExtent2D extent, VkPipeline pipeline, VkBuffer vertexBuffer, uint32_t vertexCount)
+{
+    vkResetCommandBuffer(commandBuffer, 0);
+
+    VkCommandBufferBeginInfo commandBufferBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .flags = 0, .pInheritanceInfo = nullptr};
+    VkResult res = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+    if (res != VK_SUCCESS)
+    {
+        std::cerr << "Failed to begin recording command buffer : " << res << std::endl;
+        return;
+    }
+
+    VkClearValue clearColor = {.color = {0.2f, 0.2f, 0.2f, 1.f}};
+    VkRenderPassBeginInfo renderPassBeginInfo = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                                                 .renderPass = renderPass,
+                                                 .framebuffer = framebuffer,
+                                                 .renderArea = {.offset = {0, 0}, .extent = extent},
+                                                 .clearValueCount = 1,
+                                                 .pClearValues = &clearColor};
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+    VkViewport viewport = {.x = 0.f,
+                           .y = 0.f,
+                           .width = static_cast<float>(extent.width),
+                           .height = static_cast<float>(extent.height),
+                           .minDepth = 0.f,
+                           .maxDepth = 1.f};
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    VkRect2D scissor = {.offset = {0, 0}, .extent = extent};
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    VkBuffer vbos[] = {vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vbos, offsets);
+    vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+
+    vkCmdEndRenderPass(commandBuffer);
+
+    res = vkEndCommandBuffer(commandBuffer);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to record command buffer : " << res << std::endl;
+}
+
+inline void submit_back_buffer(VkCommandBuffer commandBuffer, VkSemaphore &acquireSemaphore,
+                               VkSemaphore &renderSemaphore, VkQueue graphicsQueue, VkFence &inFlightFence)
+{
+    VkSemaphore waitSemaphores[] = {acquireSemaphore};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSemaphore signalSemaphores[] = {renderSemaphore};
+    VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                               .waitSemaphoreCount = 1,
+                               .pWaitSemaphores = waitSemaphores,
+                               .pWaitDstStageMask = waitStages,
+                               .commandBufferCount = 1,
+                               .pCommandBuffers = &commandBuffer,
+                               .signalSemaphoreCount = 1,
+                               .pSignalSemaphores = signalSemaphores};
+
+    VkResult res = vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to submit draw command buffer : " << res << std::endl;
+}
+
+inline void present_back_buffer(VkSwapchainKHR swapchain, VkSemaphore renderSemaphore, uint32_t imageIndex,
+                                VkQueue presentQueue)
+{
+    VkSwapchainKHR swapchains[] = {swapchain};
+    VkSemaphore signalSemaphores[] = {renderSemaphore};
+    VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                                    .waitSemaphoreCount = 1,
+                                    .pWaitSemaphores = signalSemaphores,
+                                    .swapchainCount = 1,
+                                    .pSwapchains = swapchains,
+                                    .pImageIndices = &imageIndex,
+                                    .pResults = nullptr};
+
+    VkResult res = vkQueuePresentKHR(presentQueue, &presentInfo);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to present : " << res << std::endl;
+}
+} // namespace Render
 } // namespace RHI
