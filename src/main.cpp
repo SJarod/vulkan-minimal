@@ -106,7 +106,7 @@ int main()
         uint32_t imageIndex = RHI::Render::acquire_back_buffer(device, swapchain, acquireSemaphores[backBufferIndex],
                                                                inFlightFences, backBufferIndex);
 
-        RHI::Render::record_back_buffer(commandBuffers[backBufferIndex], renderPass, framebuffers[backBufferIndex],
+        RHI::Render::record_back_buffer(commandBuffers[backBufferIndex], renderPass, framebuffers[imageIndex],
                                         {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}, pipeline,
                                         vertexBuffer, vertices.size());
         RHI::Render::submit_back_buffer(graphicsQueue, commandBuffers[backBufferIndex],
