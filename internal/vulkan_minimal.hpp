@@ -1086,8 +1086,8 @@ inline void record_back_buffer(VkCommandBuffer commandBuffer, VkRenderPass rende
         std::cerr << "Failed to record command buffer : " << res << std::endl;
 }
 
-inline void submit_back_buffer(VkCommandBuffer commandBuffer, VkSemaphore &acquireSemaphore,
-                               VkSemaphore &renderSemaphore, VkQueue graphicsQueue, VkFence &inFlightFence)
+inline void submit_back_buffer(VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkSemaphore &acquireSemaphore,
+                               VkSemaphore &renderSemaphore, VkFence &inFlightFence)
 {
     VkSemaphore waitSemaphores[] = {acquireSemaphore};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -1106,8 +1106,8 @@ inline void submit_back_buffer(VkCommandBuffer commandBuffer, VkSemaphore &acqui
         std::cerr << "Failed to submit draw command buffer : " << res << std::endl;
 }
 
-inline void present_back_buffer(VkSwapchainKHR swapchain, VkSemaphore renderSemaphore, uint32_t imageIndex,
-                                VkQueue presentQueue)
+inline void present_back_buffer(VkQueue presentQueue, VkSwapchainKHR swapchain, uint32_t imageIndex,
+                                VkSemaphore &renderSemaphore)
 {
     VkSwapchainKHR swapchains[] = {swapchain};
     VkSemaphore signalSemaphores[] = {renderSemaphore};

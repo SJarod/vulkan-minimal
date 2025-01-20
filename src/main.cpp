@@ -109,11 +109,11 @@ int main()
         RHI::Render::record_back_buffer(commandBuffers[backBufferIndex], renderPass, framebuffers[backBufferIndex],
                                         {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}, pipeline,
                                         vertexBuffer, vertices.size());
-        RHI::Render::submit_back_buffer(commandBuffers[backBufferIndex], acquireSemaphores[backBufferIndex],
-                                        renderSemaphores[backBufferIndex], graphicsQueue,
+        RHI::Render::submit_back_buffer(graphicsQueue, commandBuffers[backBufferIndex],
+                                        acquireSemaphores[backBufferIndex], renderSemaphores[backBufferIndex],
                                         inFlightFences[backBufferIndex]);
 
-        RHI::Render::present_back_buffer(swapchain, renderSemaphores[backBufferIndex], imageIndex, presentQueue);
+        RHI::Render::present_back_buffer(presentQueue, swapchain, imageIndex, renderSemaphores[backBufferIndex]);
 
         WSI::swap_buffers(window);
         backBufferIndex = (backBufferIndex + 1) % bufferingType;
