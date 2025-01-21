@@ -24,27 +24,6 @@ inline void load_symbols()
     volkInitialize();
 }
 
-// binding the data to the vertex shader
-inline VkVertexInputBindingDescription get_vertex_binding_description()
-{
-    // describe the buffer data
-    VkVertexInputBindingDescription desc = {.binding = 0,
-                                            .stride = sizeof(Vertex),
-                                            // update every vertex (opposed to VK_VERTEX_INPUT_RATE_INSTANCE)
-                                            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
-
-    return desc;
-}
-// 2 attributes descripction
-inline std::array<VkVertexInputAttributeDescription, 2> get_vertex_attribute_description()
-{
-    // attribute pointer
-    std::array<VkVertexInputAttributeDescription, 2> desc;
-    desc[0] = {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, position)};
-    desc[1] = {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = offsetof(Vertex, color)};
-    return desc;
-}
-
 namespace Instance
 {
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report_callback_instance(VkDebugReportFlagsEXT flags,
@@ -719,6 +698,27 @@ inline void destroy_shader_module(VkDevice device, VkShaderModule module)
     vkDestroyShaderModule(device, module, nullptr);
 }
 
+// binding the data to the vertex shader
+inline VkVertexInputBindingDescription get_vertex_binding_description()
+{
+    // describe the buffer data
+    VkVertexInputBindingDescription desc = {.binding = 0,
+                                            .stride = sizeof(Vertex),
+                                            // update every vertex (opposed to VK_VERTEX_INPUT_RATE_INSTANCE)
+                                            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
+
+    return desc;
+}
+// 2 attributes descripction
+inline std::array<VkVertexInputAttributeDescription, 2> get_vertex_attribute_description()
+{
+    // attribute pointer
+    std::array<VkVertexInputAttributeDescription, 2> desc;
+    desc[0] = {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, position)};
+    desc[1] = {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = offsetof(Vertex, color)};
+    return desc;
+}
+
 inline VkPipelineLayout create_pipeline_layout(VkDevice device)
 {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -775,8 +775,8 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .pDynamicStates = dynamicStates.data()};
 
     // vertex buffer (enabling the binding for our Vertex structure)
-    auto binding = get_vertex_binding_description();
-    auto attribs = get_vertex_attribute_description();
+    auto binding = Shader::get_vertex_binding_description();
+    auto attribs = Shader::get_vertex_attribute_description();
     VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
@@ -1032,7 +1032,7 @@ inline void transfer_staging_buffer_to_dst_buffer(VkDevice device, VkBuffer stag
                                                   size_t size, VkCommandPool commandPoolTransient,
                                                   VkQueue graphicsQueue)
 {
-    VkCommandBufferAllocateInfo allocInfo{
+    VkCommandBufferAllocateInfo allocInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = commandPoolTransient,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -1040,17 +1040,17 @@ inline void transfer_staging_buffer_to_dst_buffer(VkDevice device, VkBuffer stag
     };
     VkCommandBuffer commandBuffer;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-    VkCommandBufferBeginInfo beginInfo{
+    VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
-    VkBufferCopy copyRegion{
+    VkBufferCopy copyRegion = {
         .size = size,
     };
     vkCmdCopyBuffer(commandBuffer, stagingBuffer, dstBuffer, 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
-    VkSubmitInfo submitInfo{
+    VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .commandBufferCount = 1,
         .pCommandBuffers = &commandBuffer,
