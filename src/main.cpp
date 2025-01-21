@@ -149,8 +149,8 @@ int main()
 
         RHI::Pipeline::Shader::UniformBufferObjectT ubo = {
             .model = glm::mat4(1.f),
-            .view = glm::lookAt(glm::vec3(0.f, 5.f, 5.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.)),
-            .proj = glm::perspective(glm::radians(60.f), extent.width / (float)extent.height, 0.f, 1000.f),
+            .view = glm::lookAt(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.)),
+            .proj = glm::perspective(glm::radians(45.f), extent.width / (float)extent.height, 0.1f, 1000.f),
         };
         memcpy(uniformBufferMapped[imageIndex], &ubo, sizeof(ubo));
 
