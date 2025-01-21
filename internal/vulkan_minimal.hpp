@@ -19,6 +19,10 @@
 
 namespace RHI
 {
+/**
+ * @brief load Vulkan symbols
+ *
+ */
 inline void load_symbols()
 {
     volkInitialize();
@@ -680,6 +684,13 @@ namespace Pipeline
 {
 namespace Shader
 {
+struct UniformBufferObjectT
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 inline VkShaderModule create_shader_module(VkDevice device, const std::vector<char> &code)
 {
     VkShaderModuleCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -719,11 +730,39 @@ inline std::array<VkVertexInputAttributeDescription, 2> get_vertex_attribute_des
     return desc;
 }
 
-inline VkPipelineLayout create_pipeline_layout(VkDevice device)
+inline VkDescriptorSetLayout create_descriptor_set_layout(VkDevice device)
+{
+    VkDescriptorSetLayoutBinding setLayoutBinding = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .pImmutableSamplers = nullptr,
+    };
+
+    VkDescriptorSetLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &setLayoutBinding,
+    };
+
+    VkDescriptorSetLayout setLayout;
+    VkResult res = vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &setLayout);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to create descriptor set layout : " << res << std::endl;
+
+    return setLayout;
+}
+inline void destroy_descriptor_set_layout(VkDevice device, VkDescriptorSetLayout setLayout)
+{
+    vkDestroyDescriptorSetLayout(device, setLayout, nullptr);
+}
+
+inline VkPipelineLayout create_pipeline_layout(VkDevice device, const std::vector<VkDescriptorSetLayout> &setLayouts)
 {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                                                           .setLayoutCount = 0,
-                                                           .pSetLayouts = nullptr,
+                                                           .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+                                                           .pSetLayouts = setLayouts.data(),
                                                            .pushConstantRangeCount = 0,
                                                            .pPushConstantRanges = nullptr};
 
@@ -738,16 +777,80 @@ inline void destroy_pipeline_layout(VkDevice device, VkPipelineLayout pipelineLa
 {
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 }
+
+inline VkDescriptorPool create_descriptor_pool(VkDevice device, uint32_t frameInFlightCount)
+{
+    VkDescriptorPoolSize poolSize = {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = frameInFlightCount,
+    };
+
+    VkDescriptorPoolCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = frameInFlightCount,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize,
+    };
+
+    VkDescriptorPool descriptorPool;
+    VkResult res = vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to create descriptor pool : " << res << std::endl;
+
+    return descriptorPool;
+}
+inline void destroy_descriptor_pool(VkDevice device, VkDescriptorPool descriptorPool)
+{
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+}
+
+inline std::vector<VkDescriptorSet> allocate_desriptor_sets(VkDevice device, VkDescriptorPool descriptorPool,
+                                                            uint32_t frameInFlightCount,
+                                                            const std::vector<VkDescriptorSetLayout> &setLayouts)
+{
+    VkDescriptorSetAllocateInfo allocInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = frameInFlightCount,
+        .pSetLayouts = setLayouts.data(),
+    };
+
+    std::vector<VkDescriptorSet> descriptorSets(frameInFlightCount);
+    VkResult res = vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data());
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to allocate descriptor sets : " << res << std::endl;
+
+    return descriptorSets;
+}
+
+inline void write_descriptor_sets(VkDevice device, VkDescriptorSet descriptorSet, VkDescriptorType descriptorType,
+                                  VkDescriptorImageInfo *imageInfo, VkDescriptorBufferInfo *bufferInfo)
+{
+    VkWriteDescriptorSet write = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = descriptorType,
+        .pImageInfo = imageInfo,
+        .pBufferInfo = bufferInfo,
+        .pTexelBufferView = nullptr,
+    };
+
+    vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+}
 } // namespace Shader
 
-inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, const char *shaderName, VkExtent2D extent)
+inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, const char *shaderName, VkExtent2D extent,
+                                  VkPipelineLayout pipelineLayout)
 {
     std::vector<char> vs;
     if (!read_binary_file("shaders/" + std::string(shaderName) + ".vert.spv", vs))
-        return VkPipeline();
+        return VK_NULL_HANDLE;
     std::vector<char> fs;
     if (!read_binary_file("shaders/" + std::string(shaderName) + ".frag.spv", fs))
-        return VkPipeline();
+        return VK_NULL_HANDLE;
 
     VkShaderModule vsModule = Shader::create_shader_module(device, vs);
     VkShaderModule fsModule = Shader::create_shader_module(device, fs);
@@ -774,7 +877,7 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
         .pDynamicStates = dynamicStates.data()};
 
-    // vertex buffer (enabling the binding for our Vertex structure)
+    // vertex (enabling the binding for the Vertex structure)
     auto binding = Shader::get_vertex_binding_description();
     auto attribs = Shader::get_vertex_attribute_description();
     VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
@@ -846,9 +949,6 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment,
         .blendConstants = {0.f, 0.f, 0.f, 0.f}};
-
-    // shader variables
-    VkPipelineLayout pipelineLayout = Shader::create_pipeline_layout(device);
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                                                        // shader stage
@@ -1028,6 +1128,22 @@ inline void copy_data_to_memory(VkDevice device, VkDeviceMemory memory, const vo
     vkUnmapMemory(device, memory);
 }
 
+inline std::pair<VkBuffer, VkDeviceMemory> create_allocated_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
+                                                                   size_t size, VkBufferUsageFlags usage,
+                                                                   VkMemoryPropertyFlags properties)
+{
+    VkBuffer buffer = create_buffer(device, size, usage);
+    VkMemoryRequirements bufferMemReq;
+    vkGetBufferMemoryRequirements(device, buffer, &bufferMemReq);
+    std::optional<uint32_t> bufferMemoryTypeIndex =
+        Device::Memory::find_memory_type_index(physicalDevice, bufferMemReq, properties);
+
+    VkDeviceMemory memory = allocate_memory(device, bufferMemReq.size, bufferMemoryTypeIndex.value());
+    bind_memory_to_buffer(device, buffer, memory);
+
+    return {buffer, memory};
+}
+
 inline void transfer_staging_buffer_to_dst_buffer(VkDevice device, VkBuffer stagingBuffer, VkBuffer dstBuffer,
                                                   size_t size, VkCommandPool commandPoolTransient,
                                                   VkQueue graphicsQueue)
@@ -1064,43 +1180,42 @@ inline void transfer_staging_buffer_to_dst_buffer(VkDevice device, VkBuffer stag
     vkFreeCommandBuffers(device, commandPoolTransient, 1, &commandBuffer);
 }
 
+/**
+ * @brief Create a optimal buffer from data object by using a staging buffer
+ *
+ * @param device
+ * @param physicalDevice
+ * @param size
+ * @param data
+ * @param commandPoolTransient
+ * @param graphicsQueue
+ * @return std::pair<VkBuffer, VkDeviceMemory>
+ */
 inline std::pair<VkBuffer, VkDeviceMemory> create_optimal_buffer_from_data(VkDevice device,
                                                                            VkPhysicalDevice physicalDevice, size_t size,
-                                                                           const void *data,
+                                                                           const void *data, VkBufferUsageFlags usage,
                                                                            VkCommandPool commandPoolTransient,
                                                                            VkQueue graphicsQueue)
 {
     // staging buffer
 
-    VkBuffer stagingBuffer = RHI::Memory::create_buffer(device, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-    VkMemoryRequirements stagingBufferMemReq;
-    vkGetBufferMemoryRequirements(device, stagingBuffer, &stagingBufferMemReq);
-    std::optional<uint32_t> stagingBufferMemoryTypeIndex = RHI::Device::Memory::find_memory_type_index(
-        physicalDevice, stagingBufferMemReq, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    VkDeviceMemory stagingBufferMemory =
-        RHI::Memory::allocate_memory(device, stagingBufferMemReq.size, stagingBufferMemoryTypeIndex.value());
-    RHI::Memory::copy_data_to_memory(device, stagingBufferMemory, data, size);
-    RHI::Memory::bind_memory_to_buffer(device, stagingBuffer, stagingBufferMemory);
+    auto stagingBuffer = create_allocated_buffer(device, physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    RHI::Memory::copy_data_to_memory(device, stagingBuffer.second, data, size);
 
     // buffer
 
-    VkBuffer buffer =
-        RHI::Memory::create_buffer(device, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    VkMemoryRequirements bufferMemReq;
-    vkGetBufferMemoryRequirements(device, buffer, &bufferMemReq);
-    std::optional<uint32_t> bufferMemoryTypeIndex =
-        RHI::Device::Memory::find_memory_type_index(physicalDevice, bufferMemReq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    VkDeviceMemory bufferMemory =
-        RHI::Memory::allocate_memory(device, bufferMemReq.size, bufferMemoryTypeIndex.value());
-    RHI::Memory::bind_memory_to_buffer(device, buffer, bufferMemory);
+    auto buffer = create_allocated_buffer(device, physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
+                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    RHI::Memory::transfer_staging_buffer_to_dst_buffer(device, stagingBuffer, buffer, size, commandPoolTransient,
-                                                       graphicsQueue);
+    RHI::Memory::transfer_staging_buffer_to_dst_buffer(device, stagingBuffer.first, buffer.first, size,
+                                                       commandPoolTransient, graphicsQueue);
 
-    RHI::Memory::free_memory(device, stagingBufferMemory);
-    RHI::Memory::destroy_buffer(device, stagingBuffer);
+    RHI::Memory::free_memory(device, stagingBuffer.second);
+    RHI::Memory::destroy_buffer(device, stagingBuffer.first);
 
-    return {buffer, bufferMemory};
+    return buffer;
 }
 } // namespace Memory
 
@@ -1157,6 +1272,12 @@ inline void record_back_buffer_pipeline_commands(VkCommandBuffer commandBuffer, 
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     VkRect2D scissor = {.offset = {0, 0}, .extent = extent};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}
+inline void record_back_buffer_descriptor_sets_commands(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
+                                                        VkDescriptorSet descriptorSet)
+{
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0,
+                            nullptr);
 }
 inline void record_back_buffer_draw_object_commands(VkCommandBuffer commandBuffer, VkBuffer vertexBuffer,
                                                     uint32_t vertexCount)

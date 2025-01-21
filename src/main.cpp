@@ -1,10 +1,11 @@
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "wsi.hpp"
 
 #include "vulkan_minimal.hpp"
 
 int main()
 {
-    // TODO : descriptor sets (mvp)
     // TODO : textures
     // TODO : better pipeline creation
 
@@ -61,6 +62,7 @@ int main()
     std::vector<VkImage> swapchainImages = RHI::Presentation::SwapChain::get_swap_chain_images(device, swapchain);
     std::vector<VkImageView> swapchainImageViews = RHI::Presentation::SwapChain::create_swap_chain_image_views(
         device, swapchain, swapchainImages, surfaceFormat->format);
+    uint32_t frameInFlightCount = static_cast<uint32_t>(swapchainImages.size());
 
     VkRenderPass renderPass = RHI::RenderPass::create_render_pass(device, surfaceFormat->format);
 
@@ -68,7 +70,9 @@ int main()
     std::vector<VkFramebuffer> framebuffers =
         RHI::RenderPass::create_framebuffers(device, renderPass, swapchainImageViews, extent);
 
-    VkPipeline pipeline = RHI::Pipeline::create_pipeline(device, renderPass, "triangle", extent);
+    std::vector<VkDescriptorSetLayout> setLayouts = {RHI::Pipeline::Shader::create_descriptor_set_layout(device)};
+    VkPipelineLayout pipelineLayout = RHI::Pipeline::Shader::create_pipeline_layout(device, setLayouts);
+    VkPipeline pipeline = RHI::Pipeline::create_pipeline(device, renderPass, "triangle", extent, pipelineLayout);
 
     VkCommandPool commandPool = RHI::Command::create_command_pool(device, graphicsFamilyIndex.value());
     VkCommandPool commandPoolTransient = RHI::Command::create_command_pool(device, graphicsFamilyIndex.value(), true);
@@ -94,15 +98,46 @@ int main()
                                           {{0.5f, 0.5f, 0.f}, {0.f, 0.f, 1.f, 1.f}},
                                           {{-0.5f, 0.5f, 0.f}, {1.f, 1.f, 1.f, 1.f}}};
     size_t vertexBufferSize = sizeof(Vertex) * vertices.size();
-    auto vertexBuffer = RHI::Memory::create_optimal_buffer_from_data(
-        device, physicalDevice, vertexBufferSize, vertices.data(), commandPoolTransient, graphicsQueue);
+    auto vertexBuffer = RHI::Memory::create_optimal_buffer_from_data(device, physicalDevice, vertexBufferSize,
+                                                                     vertices.data(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                                                     commandPoolTransient, graphicsQueue);
 
     // index buffer
 
     const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
     size_t indexBufferSize = sizeof(uint16_t) * indices.size();
-    auto indexBuffer = RHI::Memory::create_optimal_buffer_from_data(
-        device, physicalDevice, indexBufferSize, indices.data(), commandPoolTransient, graphicsQueue);
+    auto indexBuffer = RHI::Memory::create_optimal_buffer_from_data(device, physicalDevice, indexBufferSize,
+                                                                    indices.data(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                                                    commandPoolTransient, graphicsQueue);
+
+    // uniform buffers
+
+    std::vector<std::pair<VkBuffer, VkDeviceMemory>> uniformBuffers(frameInFlightCount);
+    std::vector<void *> uniformBufferMapped(frameInFlightCount);
+    size_t uniformBufferSize = sizeof(RHI::Pipeline::Shader::UniformBufferObjectT);
+    for (int i = 0; i < frameInFlightCount; ++i)
+    {
+        uniformBuffers[i] = RHI::Memory::create_allocated_buffer(
+            device, physicalDevice, uniformBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        vkMapMemory(device, uniformBuffers[i].second, 0, uniformBufferSize, 0, &uniformBufferMapped[i]);
+    }
+
+    VkDescriptorPool descriptorPool = RHI::Pipeline::Shader::create_descriptor_pool(device, frameInFlightCount);
+    std::vector<VkDescriptorSetLayout> uniformBufferSetLayouts(frameInFlightCount, setLayouts[0]);
+    std::vector<VkDescriptorSet> descriptorSets = RHI::Pipeline::Shader::allocate_desriptor_sets(
+        device, descriptorPool, frameInFlightCount, uniformBufferSetLayouts);
+
+    for (int i = 0; i < frameInFlightCount; ++i)
+    {
+        VkDescriptorBufferInfo bufferInfo = {
+            .buffer = uniformBuffers[i].first,
+            .offset = 0,
+            .range = sizeof(RHI::Pipeline::Shader::UniformBufferObjectT),
+        };
+        RHI::Pipeline::Shader::write_descriptor_sets(device, descriptorSets[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                     nullptr, &bufferInfo);
+    }
 
     uint32_t backBufferIndex = 0;
     while (!WSI::should_close(window))
@@ -112,8 +147,17 @@ int main()
         uint32_t imageIndex = RHI::Render::acquire_back_buffer(device, swapchain, acquireSemaphores[backBufferIndex],
                                                                inFlightFences, backBufferIndex);
 
+        RHI::Pipeline::Shader::UniformBufferObjectT ubo = {
+            .model = glm::mat4(1.f),
+            .view = glm::lookAt(glm::vec3(0.f, 5.f, 5.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.)),
+            .proj = glm::perspective(glm::radians(60.f), extent.width / (float)extent.height, 0.f, 1000.f),
+        };
+        memcpy(uniformBufferMapped[imageIndex], &ubo, sizeof(ubo));
+
         RHI::Render::record_back_buffer_pipeline_commands(commandBuffers[backBufferIndex], renderPass,
                                                           framebuffers[imageIndex], extent, pipeline);
+        RHI::Render::record_back_buffer_descriptor_sets_commands(commandBuffers[backBufferIndex], pipelineLayout,
+                                                                 descriptorSets[backBufferIndex]);
         RHI::Render::record_back_buffer_draw_indexed_object_commands(
             commandBuffers[backBufferIndex], vertexBuffer.first, indexBuffer.first, indices.size());
         RHI::Render::record_back_buffer_end(commandBuffers[backBufferIndex]);
@@ -147,6 +191,11 @@ int main()
     RHI::Command::destroy_command_pool(device, commandPool);
 
     RHI::Pipeline::destroy_pipeline(device, pipeline);
+    RHI::Pipeline::Shader::destroy_pipeline_layout(device, pipelineLayout);
+    for (VkDescriptorSetLayout setLayout : setLayouts)
+    {
+        RHI::Pipeline::Shader::destroy_descriptor_set_layout(device, setLayout);
+    }
 
     RHI::RenderPass::destroy_framebuffers(device, framebuffers);
 
