@@ -1222,8 +1222,11 @@ inline std::pair<VkBuffer, VkDeviceMemory> create_optimal_buffer_from_data(VkDev
 namespace Render
 {
 inline uint32_t acquire_back_buffer(VkDevice device, VkSwapchainKHR swapchain, VkSemaphore &acquireSemaphore,
-                                    std::vector<VkFence> &backBufferFences, uint32_t backBufferIndex)
+                                    VkFence &backBufferFence)
 {
+    vkWaitForFences(device, 1, &backBufferFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &backBufferFence);
+
     uint32_t imageIndex;
     VkResult res = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &imageIndex);
     if (res != VK_SUCCESS)
@@ -1231,9 +1234,6 @@ inline uint32_t acquire_back_buffer(VkDevice device, VkSwapchainKHR swapchain, V
         std::cerr << "Failed to acquire next image : " << res << std::endl;
         return -1;
     }
-
-    vkWaitForFences(device, 1, &backBufferFences[backBufferIndex], VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &backBufferFences[backBufferIndex]);
 
     return imageIndex;
 }
@@ -1329,10 +1329,10 @@ inline void present_back_buffer(VkQueue presentQueue, VkSwapchainKHR swapchain, 
                                 VkSemaphore &renderSemaphore)
 {
     VkSwapchainKHR swapchains[] = {swapchain};
-    VkSemaphore signalSemaphores[] = {renderSemaphore};
+    VkSemaphore waitSemaphores[] = {renderSemaphore};
     VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                     .waitSemaphoreCount = 1,
-                                    .pWaitSemaphores = signalSemaphores,
+                                    .pWaitSemaphores = waitSemaphores,
                                     .swapchainCount = 1,
                                     .pSwapchains = swapchains,
                                     .pImageIndices = &imageIndex,

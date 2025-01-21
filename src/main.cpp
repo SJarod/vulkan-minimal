@@ -145,7 +145,7 @@ int main()
         WSI::poll_events();
 
         uint32_t imageIndex = RHI::Render::acquire_back_buffer(device, swapchain, acquireSemaphores[backBufferIndex],
-                                                               inFlightFences, backBufferIndex);
+                                                               inFlightFences[backBufferIndex]);
 
         RHI::Pipeline::Shader::UniformBufferObjectT ubo = {
             .model = glm::mat4(1.f),
@@ -173,6 +173,17 @@ int main()
     }
 
     vkDeviceWaitIdle(device);
+
+    RHI::Pipeline::Shader::destroy_descriptor_pool(device, descriptorPool);
+
+    for (int i = 0; i < frameInFlightCount; ++i)
+    {
+        RHI::Memory::free_memory(device, uniformBuffers[i].second);
+        RHI::Memory::destroy_buffer(device, uniformBuffers[i].first);
+    }
+
+    RHI::Memory::free_memory(device, indexBuffer.second);
+    RHI::Memory::destroy_buffer(device, indexBuffer.first);
 
     RHI::Memory::free_memory(device, vertexBuffer.second);
     RHI::Memory::destroy_buffer(device, vertexBuffer.first);
