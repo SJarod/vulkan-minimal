@@ -889,11 +889,13 @@ inline void destroy_pipeline(VkDevice device, VkPipeline pipeline)
 
 namespace Command
 {
-inline VkCommandPool create_command_pool(VkDevice device, uint32_t queueFamilyIndex)
+inline VkCommandPool create_command_pool(VkDevice device, uint32_t queueFamilyIndex, bool bTransient = false)
 {
+    VkCommandPoolCreateFlags flags =
+        bTransient ? VK_COMMAND_POOL_CREATE_TRANSIENT_BIT : VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     VkCommandPoolCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .flags = flags,
         .queueFamilyIndex = queueFamilyIndex,
     };
 
@@ -964,13 +966,20 @@ inline void destroy_fence(VkDevice device, VkFence fence)
 
 namespace Memory
 {
-inline VkBuffer create_buffer(VkDevice device, uint64_t size)
+/**
+ * @brief Create a buffer object
+ *
+ * @param device
+ * @param size
+ * @param usage
+ * @return VkBuffer
+ */
+inline VkBuffer create_buffer(VkDevice device, size_t size, VkBufferUsageFlags usage)
 {
-    // TODO : staging buffers for better performance (https://vulkan-tutorial.com/en/Vertex_buffers/Staging_buffer)
     VkBufferCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                                      .flags = 0,
                                      .size = size,
-                                     .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                     .usage = usage,
                                      .sharingMode = VK_SHARING_MODE_EXCLUSIVE};
 
     VkBuffer buffer;
@@ -1008,15 +1017,90 @@ inline void bind_memory_to_buffer(VkDevice device, VkBuffer buffer, VkDeviceMemo
     vkBindBufferMemory(device, buffer, memory, 0);
 }
 
-inline void copy_data_to_memory(VkDevice device, VkDeviceMemory memory, const void *srcData, uint64_t size)
+inline void copy_data_to_memory(VkDevice device, VkDeviceMemory memory, const void *srcData, size_t size)
 {
     // filling the VBO (bind and unbind CPU accessible memory)
     void *data;
     vkMapMemory(device, memory, 0, size, 0, &data);
     // TODO : flush memory
-    memcpy(data, srcData, (size_t)size);
+    memcpy(data, srcData, size);
     // TODO : invalidate memory before reading in the pipeline
     vkUnmapMemory(device, memory);
+}
+
+inline void transfer_staging_buffer_to_dst_buffer(VkDevice device, VkBuffer stagingBuffer, VkBuffer dstBuffer,
+                                                  size_t size, VkCommandPool commandPoolTransient,
+                                                  VkQueue graphicsQueue)
+{
+    VkCommandBufferAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = commandPoolTransient,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+    VkCommandBufferBeginInfo beginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    VkBufferCopy copyRegion{
+        .size = size,
+    };
+    vkCmdCopyBuffer(commandBuffer, stagingBuffer, dstBuffer, 1, &copyRegion);
+    vkEndCommandBuffer(commandBuffer);
+    VkSubmitInfo submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+    };
+
+    VkResult res = vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to transfer data from staging buffer to dst buffer : " << res << std::endl;
+
+    vkQueueWaitIdle(graphicsQueue);
+    vkFreeCommandBuffers(device, commandPoolTransient, 1, &commandBuffer);
+}
+
+inline std::pair<VkBuffer, VkDeviceMemory> create_optimal_buffer_from_data(VkDevice device,
+                                                                           VkPhysicalDevice physicalDevice, size_t size,
+                                                                           const void *data,
+                                                                           VkCommandPool commandPoolTransient,
+                                                                           VkQueue graphicsQueue)
+{
+    // staging buffer
+
+    VkBuffer stagingBuffer = RHI::Memory::create_buffer(device, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+    VkMemoryRequirements stagingBufferMemReq;
+    vkGetBufferMemoryRequirements(device, stagingBuffer, &stagingBufferMemReq);
+    std::optional<uint32_t> stagingBufferMemoryTypeIndex = RHI::Device::Memory::find_memory_type_index(
+        physicalDevice, stagingBufferMemReq, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    VkDeviceMemory stagingBufferMemory =
+        RHI::Memory::allocate_memory(device, stagingBufferMemReq.size, stagingBufferMemoryTypeIndex.value());
+    RHI::Memory::copy_data_to_memory(device, stagingBufferMemory, data, size);
+    RHI::Memory::bind_memory_to_buffer(device, stagingBuffer, stagingBufferMemory);
+
+    // buffer
+
+    VkBuffer buffer =
+        RHI::Memory::create_buffer(device, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    VkMemoryRequirements bufferMemReq;
+    vkGetBufferMemoryRequirements(device, buffer, &bufferMemReq);
+    std::optional<uint32_t> bufferMemoryTypeIndex =
+        RHI::Device::Memory::find_memory_type_index(physicalDevice, bufferMemReq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VkDeviceMemory bufferMemory =
+        RHI::Memory::allocate_memory(device, bufferMemReq.size, bufferMemoryTypeIndex.value());
+    RHI::Memory::bind_memory_to_buffer(device, buffer, bufferMemory);
+
+    RHI::Memory::transfer_staging_buffer_to_dst_buffer(device, stagingBuffer, buffer, size, commandPoolTransient,
+                                                       graphicsQueue);
+
+    RHI::Memory::free_memory(device, stagingBufferMemory);
+    RHI::Memory::destroy_buffer(device, stagingBuffer);
+
+    return {buffer, bufferMemory};
 }
 } // namespace Memory
 
@@ -1039,8 +1123,8 @@ inline uint32_t acquire_back_buffer(VkDevice device, VkSwapchainKHR swapchain, V
     return imageIndex;
 }
 
-inline void record_back_buffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer framebuffer,
-                               VkExtent2D extent, VkPipeline pipeline, VkBuffer vertexBuffer, uint32_t vertexCount)
+inline void record_back_buffer_pipeline_commands(VkCommandBuffer commandBuffer, VkRenderPass renderPass,
+                                                 VkFramebuffer framebuffer, VkExtent2D extent, VkPipeline pipeline)
 {
     vkResetCommandBuffer(commandBuffer, 0);
 
@@ -1073,15 +1157,29 @@ inline void record_back_buffer(VkCommandBuffer commandBuffer, VkRenderPass rende
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     VkRect2D scissor = {.offset = {0, 0}, .extent = extent};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
+}
+inline void record_back_buffer_draw_object_commands(VkCommandBuffer commandBuffer, VkBuffer vertexBuffer,
+                                                    uint32_t vertexCount)
+{
     VkBuffer vbos[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vbos, offsets);
     vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
-
+}
+inline void record_back_buffer_draw_indexed_object_commands(VkCommandBuffer commandBuffer, VkBuffer vertexBuffer,
+                                                            VkBuffer indexBuffer, uint32_t indexCount)
+{
+    VkBuffer vbos[] = {vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vbos, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+}
+inline void record_back_buffer_end(VkCommandBuffer commandBuffer)
+{
     vkCmdEndRenderPass(commandBuffer);
 
-    res = vkEndCommandBuffer(commandBuffer);
+    VkResult res = vkEndCommandBuffer(commandBuffer);
     if (res != VK_SUCCESS)
         std::cerr << "Failed to record command buffer : " << res << std::endl;
 }

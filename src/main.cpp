@@ -64,13 +64,14 @@ int main()
 
     VkRenderPass renderPass = RHI::RenderPass::create_render_pass(device, surfaceFormat->format);
 
-    std::vector<VkFramebuffer> framebuffers = RHI::RenderPass::create_framebuffers(
-        device, renderPass, swapchainImageViews, {static_cast<uint32_t>(width), static_cast<uint32_t>(height)});
+    VkExtent2D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    std::vector<VkFramebuffer> framebuffers =
+        RHI::RenderPass::create_framebuffers(device, renderPass, swapchainImageViews, extent);
 
-    VkPipeline pipeline = RHI::Pipeline::create_pipeline(device, renderPass, "triangle",
-                                                         {static_cast<uint32_t>(width), static_cast<uint32_t>(height)});
+    VkPipeline pipeline = RHI::Pipeline::create_pipeline(device, renderPass, "triangle", extent);
 
     VkCommandPool commandPool = RHI::Command::create_command_pool(device, graphicsFamilyIndex.value());
+    VkCommandPool commandPoolTransient = RHI::Command::create_command_pool(device, graphicsFamilyIndex.value(), true);
 
     uint32_t bufferingType = 2;
     std::vector<VkCommandBuffer> commandBuffers =
@@ -86,17 +87,22 @@ int main()
         inFlightFences.emplace_back(RHI::Parallel::create_fence(device));
     }
 
-    const std::vector<Vertex> vertices = {{{0.0f, -0.5f, 0.f}, {1.f, 0.f, 0.f, 1.f}},
-                                          {{0.5f, 0.5f, 0.f}, {0.f, 1.f, 0.f, 1.f}},
-                                          {{-0.5f, 0.5f, 0.f}, {0.f, 0.f, 1.f, 1.f}}};
-    VkBuffer vertexBuffer = RHI::Memory::create_buffer(device, sizeof(Vertex) * vertices.size());
-    VkMemoryRequirements memReq;
-    vkGetBufferMemoryRequirements(device, vertexBuffer, &memReq);
-    std::optional<uint32_t> memoryTypeIndex = RHI::Device::Memory::find_memory_type_index(
-        physicalDevice, memReq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    VkDeviceMemory memory = RHI::Memory::allocate_memory(device, memReq.size, memoryTypeIndex.value());
-    RHI::Memory::copy_data_to_memory(device, memory, vertices.data(), sizeof(Vertex) * vertices.size());
-    RHI::Memory::bind_memory_to_buffer(device, vertexBuffer, memory);
+    // vertex buffer
+
+    const std::vector<Vertex> vertices = {{{-0.5f, -0.5f, 0.f}, {1.f, 0.f, 0.f, 1.f}},
+                                          {{0.5f, -0.5f, 0.f}, {0.f, 1.f, 0.f, 1.f}},
+                                          {{0.5f, 0.5f, 0.f}, {0.f, 0.f, 1.f, 1.f}},
+                                          {{-0.5f, 0.5f, 0.f}, {1.f, 1.f, 1.f, 1.f}}};
+    size_t vertexBufferSize = sizeof(Vertex) * vertices.size();
+    auto vertexBuffer = RHI::Memory::create_optimal_buffer_from_data(
+        device, physicalDevice, vertexBufferSize, vertices.data(), commandPoolTransient, graphicsQueue);
+
+    // index buffer
+
+    const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+    size_t indexBufferSize = sizeof(uint16_t) * indices.size();
+    auto indexBuffer = RHI::Memory::create_optimal_buffer_from_data(
+        device, physicalDevice, indexBufferSize, indices.data(), commandPoolTransient, graphicsQueue);
 
     uint32_t backBufferIndex = 0;
     while (!WSI::should_close(window))
@@ -106,9 +112,12 @@ int main()
         uint32_t imageIndex = RHI::Render::acquire_back_buffer(device, swapchain, acquireSemaphores[backBufferIndex],
                                                                inFlightFences, backBufferIndex);
 
-        RHI::Render::record_back_buffer(commandBuffers[backBufferIndex], renderPass, framebuffers[imageIndex],
-                                        {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}, pipeline,
-                                        vertexBuffer, vertices.size());
+        RHI::Render::record_back_buffer_pipeline_commands(commandBuffers[backBufferIndex], renderPass,
+                                                          framebuffers[imageIndex], extent, pipeline);
+        RHI::Render::record_back_buffer_draw_indexed_object_commands(
+            commandBuffers[backBufferIndex], vertexBuffer.first, indexBuffer.first, indices.size());
+        RHI::Render::record_back_buffer_end(commandBuffers[backBufferIndex]);
+
         RHI::Render::submit_back_buffer(graphicsQueue, commandBuffers[backBufferIndex],
                                         acquireSemaphores[backBufferIndex], renderSemaphores[backBufferIndex],
                                         inFlightFences[backBufferIndex]);
@@ -121,8 +130,8 @@ int main()
 
     vkDeviceWaitIdle(device);
 
-    RHI::Memory::free_memory(device, memory);
-    RHI::Memory::destroy_buffer(device, vertexBuffer);
+    RHI::Memory::free_memory(device, vertexBuffer.second);
+    RHI::Memory::destroy_buffer(device, vertexBuffer.first);
 
     for (int i = 0; i < bufferingType; ++i)
     {
@@ -134,6 +143,7 @@ int main()
     renderSemaphores.clear();
     acquireSemaphores.clear();
 
+    RHI::Command::destroy_command_pool(device, commandPoolTransient);
     RHI::Command::destroy_command_pool(device, commandPool);
 
     RHI::Pipeline::destroy_pipeline(device, pipeline);
