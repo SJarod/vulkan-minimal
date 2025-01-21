@@ -6,6 +6,12 @@ add_subdirectory(volk)
 
 add_subdirectory(glm)
 
+add_library(stb INTERFACE)
+target_sources(stb INTERFACE
+    stb/stb_image.h
+)
+target_include_directories(stb INTERFACE ./stb/)
+
 set(SPIRV_HEADERS_ENABLE_TESTS OFF)
 add_subdirectory(SPIRV-Headers)
 set(SPIRV_SKIP_EXECUTABLES ON)

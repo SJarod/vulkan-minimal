@@ -10,6 +10,7 @@ target_sources(${component}
 target_link_libraries(${component}
 	PUBLIC internal
 	PUBLIC glslc # ensure glslc is built before vk
+	PUBLIC stb
 )
 
 set(SHADER_SOURCES

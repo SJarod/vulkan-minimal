@@ -52,7 +52,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report_callback_instance(VkDebugRepo
     return VK_FALSE;
 };
 
-inline VkInstance create_instance(std::vector<const char *> layers, std::vector<const char *> instanceExtensions)
+inline VkInstance create_instance(std::vector<const char *> layers, std::vector<const char *> instanceExtensions,
+                                  bool bDebugReportCallback = true)
 {
     VkApplicationInfo appInfo = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                                  .pApplicationName = "Vulkan Minimal",
@@ -70,7 +71,7 @@ inline VkInstance create_instance(std::vector<const char *> layers, std::vector<
         .pUserData = nullptr,
     };
     VkInstanceCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                                       .pNext = &debugReportCreateInfo,
+                                       .pNext = bDebugReportCallback ? &debugReportCreateInfo : nullptr,
                                        .pApplicationInfo = &appInfo,
                                        .enabledLayerCount = static_cast<uint32_t>(layers.size()),
                                        .ppEnabledLayerNames = layers.data(),
@@ -145,17 +146,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(VkDebugUtilsMessa
     return VK_FALSE;
 }
 
-inline VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance instance)
+inline VkDebugUtilsMessengerEXT create_debug_messenger(
+    VkInstance instance,
+    VkDebugUtilsMessageSeverityFlagsEXT messageType = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 {
-    VkDebugUtilsMessengerCreateInfoEXT createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        .messageSeverity =
-            // VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-        .pfnUserCallback = debug_messenger_callback,
-        .pUserData = nullptr};
+    VkDebugUtilsMessengerCreateInfoEXT createInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+                                                     .messageSeverity = messageType,
+                                                     .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                                                    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                                                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+                                                     .pfnUserCallback = debug_messenger_callback,
+                                                     .pUserData = nullptr};
 
     VkDebugUtilsMessengerEXT messenger;
     VkResult res = vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &messenger);
@@ -193,13 +197,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report_callback(VkDebugReportFlagsEX
     return VK_FALSE;
 };
 
-inline VkDebugReportCallbackEXT create_debug_report_callback(VkInstance instance)
+inline VkDebugReportCallbackEXT create_debug_report_callback(
+    VkInstance instance,
+    VkDebugReportFlagsEXT messageType = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
+                                        VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT |
+                                        VK_DEBUG_REPORT_DEBUG_BIT_EXT)
 {
     VkDebugReportCallbackCreateInfoEXT createInfo = {
         .sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
-        .flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
-                 VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT |
-                 VK_DEBUG_REPORT_DEBUG_BIT_EXT,
+        .flags = messageType,
         .pfnCallback = debug_report_callback,
         .pUserData = nullptr,
     };
@@ -1026,6 +1032,44 @@ inline std::vector<VkCommandBuffer> allocate_command_buffers(VkDevice device, Vk
 
     return commandBuffer;
 }
+
+inline VkCommandBuffer command_buffer_begin_one_time_submit(VkDevice device, VkCommandPool commandPoolTransient)
+{
+    VkCommandBufferAllocateInfo allocInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = commandPoolTransient,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    VkResult res = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to begin one time submit command buffer : " << res << std::endl;
+
+    return commandBuffer;
+}
+inline void command_buffer_end_one_time_submit(VkCommandBuffer commandBuffer, VkDevice device, VkQueue queue,
+                                               VkCommandPool commandPoolTransient)
+{
+    vkEndCommandBuffer(commandBuffer);
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+    };
+
+    VkResult res = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to submit one time command buffer : " << res << std::endl;
+
+    vkQueueWaitIdle(queue);
+    vkFreeCommandBuffers(device, commandPoolTransient, 1, &commandBuffer);
+}
 } // namespace Command
 
 namespace Parallel
@@ -1066,6 +1110,49 @@ inline void destroy_fence(VkDevice device, VkFence fence)
 
 namespace Memory
 {
+inline VkDeviceMemory allocate_memory(VkDevice device, VkDeviceSize requiredSize, uint32_t memoryTypeIndex)
+{
+    // VRAM heap
+    VkMemoryAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                                      .allocationSize = requiredSize,
+                                      .memoryTypeIndex = memoryTypeIndex};
+
+    VkDeviceMemory memory;
+    VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &memory);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to allocate memory : " << res << std::endl;
+
+    return memory;
+}
+inline void free_memory(VkDevice device, VkDeviceMemory memory)
+{
+    vkFreeMemory(device, memory, nullptr);
+}
+
+inline void copy_data_to_memory(VkDevice device, VkDeviceMemory memory, const void *srcData, size_t size)
+{
+    // filling the VBO (bind and unbind CPU accessible memory)
+    void *data;
+    vkMapMemory(device, memory, 0, size, 0, &data);
+    // TODO : flush memory
+    memcpy(data, srcData, size);
+    // TODO : invalidate memory before reading in the pipeline
+    vkUnmapMemory(device, memory);
+}
+
+inline void transfer_buffer(VkDevice device, VkBuffer srcBuffer, VkBuffer dstBuffer, size_t size,
+                            VkCommandPool commandPoolTransient, VkQueue queue)
+{
+    VkCommandBuffer commandBuffer = Command::command_buffer_begin_one_time_submit(device, commandPoolTransient);
+    VkBufferCopy copyRegion = {
+        .size = size,
+    };
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+    Command::command_buffer_end_one_time_submit(commandBuffer, device, queue, commandPoolTransient);
+}
+
+namespace Buffer
+{
 /**
  * @brief Create a buffer object
  *
@@ -1094,90 +1181,25 @@ inline void destroy_buffer(VkDevice device, VkBuffer buffer)
     vkDestroyBuffer(device, buffer, nullptr);
 }
 
-inline VkDeviceMemory allocate_memory(VkDevice device, VkDeviceSize requiredSize, uint32_t memoryTypeIndex)
-{
-    // VRAM heap
-    VkMemoryAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                                      .allocationSize = requiredSize,
-                                      .memoryTypeIndex = memoryTypeIndex};
-
-    VkDeviceMemory memory;
-    VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &memory);
-    if (res != VK_SUCCESS)
-        std::cerr << "Failed to allocate memory : " << res << std::endl;
-
-    return memory;
-}
-inline void free_memory(VkDevice device, VkDeviceMemory memory)
-{
-    vkFreeMemory(device, memory, nullptr);
-}
 inline void bind_memory_to_buffer(VkDevice device, VkBuffer buffer, VkDeviceMemory memory)
 {
     vkBindBufferMemory(device, buffer, memory, 0);
 }
 
-inline void copy_data_to_memory(VkDevice device, VkDeviceMemory memory, const void *srcData, size_t size)
-{
-    // filling the VBO (bind and unbind CPU accessible memory)
-    void *data;
-    vkMapMemory(device, memory, 0, size, 0, &data);
-    // TODO : flush memory
-    memcpy(data, srcData, size);
-    // TODO : invalidate memory before reading in the pipeline
-    vkUnmapMemory(device, memory);
-}
-
-inline std::pair<VkBuffer, VkDeviceMemory> create_allocated_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
-                                                                   size_t size, VkBufferUsageFlags usage,
-                                                                   VkMemoryPropertyFlags properties)
+inline std::pair<VkBuffer, VkDeviceMemory> create_allocated_buffer(
+    VkDevice device, VkPhysicalDevice physicalDevice, size_t size, VkBufferUsageFlags usage,
+    VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 {
     VkBuffer buffer = create_buffer(device, size, usage);
-    VkMemoryRequirements bufferMemReq;
-    vkGetBufferMemoryRequirements(device, buffer, &bufferMemReq);
-    std::optional<uint32_t> bufferMemoryTypeIndex =
-        Device::Memory::find_memory_type_index(physicalDevice, bufferMemReq, properties);
+    VkMemoryRequirements memReq;
+    vkGetBufferMemoryRequirements(device, buffer, &memReq);
+    std::optional<uint32_t> memoryTypeIndex =
+        Device::Memory::find_memory_type_index(physicalDevice, memReq, properties);
 
-    VkDeviceMemory memory = allocate_memory(device, bufferMemReq.size, bufferMemoryTypeIndex.value());
+    VkDeviceMemory memory = allocate_memory(device, memReq.size, memoryTypeIndex.value());
     bind_memory_to_buffer(device, buffer, memory);
 
     return {buffer, memory};
-}
-
-inline void transfer_staging_buffer_to_dst_buffer(VkDevice device, VkBuffer stagingBuffer, VkBuffer dstBuffer,
-                                                  size_t size, VkCommandPool commandPoolTransient,
-                                                  VkQueue graphicsQueue)
-{
-    VkCommandBufferAllocateInfo allocInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = commandPoolTransient,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-    VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-    VkBufferCopy copyRegion = {
-        .size = size,
-    };
-    vkCmdCopyBuffer(commandBuffer, stagingBuffer, dstBuffer, 1, &copyRegion);
-    vkEndCommandBuffer(commandBuffer);
-    VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &commandBuffer,
-    };
-
-    VkResult res = vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    if (res != VK_SUCCESS)
-        std::cerr << "Failed to transfer data from staging buffer to dst buffer : " << res << std::endl;
-
-    vkQueueWaitIdle(graphicsQueue);
-    vkFreeCommandBuffers(device, commandPoolTransient, 1, &commandBuffer);
 }
 
 /**
@@ -1191,32 +1213,195 @@ inline void transfer_staging_buffer_to_dst_buffer(VkDevice device, VkBuffer stag
  * @param graphicsQueue
  * @return std::pair<VkBuffer, VkDeviceMemory>
  */
-inline std::pair<VkBuffer, VkDeviceMemory> create_optimal_buffer_from_data(VkDevice device,
-                                                                           VkPhysicalDevice physicalDevice, size_t size,
-                                                                           const void *data, VkBufferUsageFlags usage,
-                                                                           VkCommandPool commandPoolTransient,
-                                                                           VkQueue graphicsQueue)
+inline std::pair<VkBuffer, VkDeviceMemory> create_optimal_buffer_from_data(
+    VkDevice device, VkPhysicalDevice physicalDevice, size_t size, const void *data, VkCommandPool commandPoolTransient,
+    VkQueue graphicsQueue, VkBufferUsageFlags usage = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 {
     // staging buffer
 
     auto stagingBuffer = create_allocated_buffer(device, physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    RHI::Memory::copy_data_to_memory(device, stagingBuffer.second, data, size);
+    copy_data_to_memory(device, stagingBuffer.second, data, size);
 
     // buffer
 
     auto buffer = create_allocated_buffer(device, physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    RHI::Memory::transfer_staging_buffer_to_dst_buffer(device, stagingBuffer.first, buffer.first, size,
-                                                       commandPoolTransient, graphicsQueue);
+    transfer_buffer(device, stagingBuffer.first, buffer.first, size, commandPoolTransient, graphicsQueue);
 
-    RHI::Memory::free_memory(device, stagingBuffer.second);
-    RHI::Memory::destroy_buffer(device, stagingBuffer.first);
+    free_memory(device, stagingBuffer.second);
+    destroy_buffer(device, stagingBuffer.first);
 
     return buffer;
 }
+} // namespace Buffer
+
+namespace Image
+{
+inline VkImage create_image(VkDevice device, uint32_t width, uint32_t height,
+                            VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
+                            VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL)
+{
+    VkImage image;
+
+    VkImageCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .flags = 0,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .extent =
+            {
+                .width = width,
+                .height = height,
+                .depth = 1U,
+            },
+        .mipLevels = 1U,
+        .arrayLayers = 1U,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = tiling,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    VkResult res = vkCreateImage(device, &createInfo, nullptr, &image);
+    if (res != VK_SUCCESS)
+    {
+        std::cerr << "Failed to create image : " << res << std::endl;
+        return VK_NULL_HANDLE;
+    }
+
+    return image;
+}
+inline void destroy_image(VkDevice device, VkImage image)
+{
+    vkDestroyImage(device, image, nullptr);
+}
+
+inline void bind_memory_to_image(VkDevice device, VkImage image, VkDeviceMemory memory)
+{
+    vkBindImageMemory(device, image, memory, 0);
+}
+
+inline std::pair<VkImage, VkDeviceMemory> create_allocated_image(
+    VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height,
+    VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB,
+    VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
+    VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+{
+    VkImage image = create_image(device, width, height, usage, format, tiling);
+    VkMemoryRequirements memReq;
+    vkGetImageMemoryRequirements(device, image, &memReq);
+    std::optional<uint32_t> memoryTypeIndex =
+        Device::Memory::find_memory_type_index(physicalDevice, memReq, properties);
+
+    VkDeviceMemory memory = allocate_memory(device, memReq.size, memoryTypeIndex.value());
+    bind_memory_to_image(device, image, memory);
+
+    return {image, memory};
+}
+
+inline void transition_image_layout(VkDevice device, VkCommandPool commandPoolTransient, VkQueue queue,
+                                    VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image,
+                                    VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+                                    VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
+{
+    VkCommandBuffer commandBuffer = Command::command_buffer_begin_one_time_submit(device, commandPoolTransient);
+
+    VkImageMemoryBarrier barrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = srcAccessMask,
+        .dstAccessMask = dstAccessMask,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    Command::command_buffer_end_one_time_submit(commandBuffer, device, queue, commandPoolTransient);
+}
+
+void copy_buffer_to_image(VkDevice device, VkCommandPool commandPoolTransient, uint32_t width, uint32_t height,
+                          VkBuffer buffer, VkImage image, VkQueue queue)
+{
+    VkCommandBuffer commandBuffer = Command::command_buffer_begin_one_time_submit(device, commandPoolTransient);
+
+    VkBufferImageCopy region = {
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        .imageOffset =
+            {
+                .x = 0,
+                .y = 0,
+                .z = 0,
+            },
+        .imageExtent =
+            {
+                .width = width,
+                .height = height,
+                .depth = 1,
+            },
+    };
+
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    Command::command_buffer_end_one_time_submit(commandBuffer, device, queue, commandPoolTransient);
+}
+
+inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(VkDevice device,
+                                                                         VkPhysicalDevice physicalDevice,
+                                                                         uint32_t width, uint32_t height, void *data,
+                                                                         VkCommandPool commandPoolTransient,
+                                                                         VkQueue graphicsQueue)
+{
+
+    size_t imageSize = width * height * 4;
+
+    auto stagingBuffer =
+        Buffer::create_allocated_buffer(device, physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    copy_data_to_memory(device, stagingBuffer.second, data, imageSize);
+
+    auto image = create_allocated_image(
+        device, physicalDevice, width, height, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    transition_image_layout(device, commandPoolTransient, graphicsQueue, VK_IMAGE_LAYOUT_UNDEFINED,
+                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, image.first, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
+                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    copy_buffer_to_image(device, commandPoolTransient, width, height, stagingBuffer.first, image.first, graphicsQueue);
+    transition_image_layout(device, commandPoolTransient, graphicsQueue, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, image.first, VK_ACCESS_TRANSFER_WRITE_BIT,
+                            VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    free_memory(device, stagingBuffer.second);
+    Buffer::destroy_buffer(device, stagingBuffer.first);
+
+    return image;
+}
+} // namespace Image
 } // namespace Memory
 
 namespace Render

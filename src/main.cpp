@@ -1,5 +1,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include "wsi.hpp"
 
 #include "vulkan_minimal.hpp"
@@ -98,17 +101,17 @@ int main()
                                           {{0.5f, 0.5f, 0.f}, {0.f, 0.f, 1.f, 1.f}},
                                           {{-0.5f, 0.5f, 0.f}, {1.f, 1.f, 1.f, 1.f}}};
     size_t vertexBufferSize = sizeof(Vertex) * vertices.size();
-    auto vertexBuffer = RHI::Memory::create_optimal_buffer_from_data(device, physicalDevice, vertexBufferSize,
-                                                                     vertices.data(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                                                     commandPoolTransient, graphicsQueue);
+    auto vertexBuffer = RHI::Memory::Buffer::create_optimal_buffer_from_data(
+        device, physicalDevice, vertexBufferSize, vertices.data(), commandPoolTransient, graphicsQueue,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     // index buffer
 
     const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
     size_t indexBufferSize = sizeof(uint16_t) * indices.size();
-    auto indexBuffer = RHI::Memory::create_optimal_buffer_from_data(device, physicalDevice, indexBufferSize,
-                                                                    indices.data(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                                                    commandPoolTransient, graphicsQueue);
+    auto indexBuffer = RHI::Memory::Buffer::create_optimal_buffer_from_data(
+        device, physicalDevice, indexBufferSize, indices.data(), commandPoolTransient, graphicsQueue,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
     // uniform buffers
 
@@ -117,7 +120,7 @@ int main()
     size_t uniformBufferSize = sizeof(RHI::Pipeline::Shader::UniformBufferObjectT);
     for (int i = 0; i < frameInFlightCount; ++i)
     {
-        uniformBuffers[i] = RHI::Memory::create_allocated_buffer(
+        uniformBuffers[i] = RHI::Memory::Buffer::create_allocated_buffer(
             device, physicalDevice, uniformBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         vkMapMemory(device, uniformBuffers[i].second, 0, uniformBufferSize, 0, &uniformBufferMapped[i]);
@@ -138,6 +141,11 @@ int main()
         RHI::Pipeline::Shader::write_descriptor_sets(device, descriptorSets[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                                      nullptr, &bufferInfo);
     }
+
+    std::vector<glm::vec4> imagePixels = {
+        {1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f}, {1.f, 0.f, 1.f, 1.f}};
+    auto texture = RHI::Memory::Image::create_image_texture_from_data(device, physicalDevice, 2, 2, imagePixels.data(),
+                                                                      commandPoolTransient, graphicsQueue);
 
     uint32_t backBufferIndex = 0;
     while (!WSI::should_close(window))
@@ -174,19 +182,22 @@ int main()
 
     vkDeviceWaitIdle(device);
 
+    RHI::Memory::free_memory(device, texture.second);
+    RHI::Memory::Image::destroy_image(device, texture.first);
+
     RHI::Pipeline::Shader::destroy_descriptor_pool(device, descriptorPool);
 
     for (int i = 0; i < frameInFlightCount; ++i)
     {
         RHI::Memory::free_memory(device, uniformBuffers[i].second);
-        RHI::Memory::destroy_buffer(device, uniformBuffers[i].first);
+        RHI::Memory::Buffer::destroy_buffer(device, uniformBuffers[i].first);
     }
 
     RHI::Memory::free_memory(device, indexBuffer.second);
-    RHI::Memory::destroy_buffer(device, indexBuffer.first);
+    RHI::Memory::Buffer::destroy_buffer(device, indexBuffer.first);
 
     RHI::Memory::free_memory(device, vertexBuffer.second);
-    RHI::Memory::destroy_buffer(device, vertexBuffer.first);
+    RHI::Memory::Buffer::destroy_buffer(device, vertexBuffer.first);
 
     for (int i = 0; i < bufferingType; ++i)
     {
