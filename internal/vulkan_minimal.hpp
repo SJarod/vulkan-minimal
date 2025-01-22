@@ -1245,7 +1245,7 @@ inline void transition_image_layout(VkDevice device, VkCommandPool commandPoolTr
     Command::command_buffer_end_one_time_submit(commandBuffer, device, queue, commandPoolTransient);
 }
 
-void copy_buffer_to_image(VkDevice device, VkCommandPool commandPoolTransient, uint32_t width, uint32_t height,
+inline void copy_buffer_to_image(VkDevice device, VkCommandPool commandPoolTransient, uint32_t width, uint32_t height,
                           VkBuffer buffer, VkImage image, VkQueue queue)
 {
     VkCommandBuffer commandBuffer = Command::command_buffer_begin_one_time_submit(device, commandPoolTransient);
