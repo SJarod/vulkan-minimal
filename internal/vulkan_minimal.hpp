@@ -1312,7 +1312,6 @@ inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(
     VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, void *data,
     VkCommandPool commandPoolTransient, VkQueue graphicsQueue, VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB)
 {
-
     size_t imageSize = width * height * 4;
 
     auto stagingBuffer =
@@ -1426,7 +1425,7 @@ inline uint32_t acquire_back_buffer(VkDevice device, VkSwapchainKHR swapchain, V
     return imageIndex;
 }
 
-inline void record_back_buffer_pipeline_commands(VkCommandBuffer commandBuffer, VkRenderPass renderPass,
+inline void record_back_buffer_begin_render_pass(VkCommandBuffer commandBuffer, VkRenderPass renderPass,
                                                  VkFramebuffer framebuffer, VkExtent2D extent, VkPipeline pipeline)
 {
     vkResetCommandBuffer(commandBuffer, 0);
@@ -1484,7 +1483,7 @@ inline void record_back_buffer_draw_indexed_object_commands(VkCommandBuffer comm
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 }
-inline void record_back_buffer_end(VkCommandBuffer commandBuffer)
+inline void record_back_buffer_end_render_pass(VkCommandBuffer commandBuffer)
 {
     vkCmdEndRenderPass(commandBuffer);
 

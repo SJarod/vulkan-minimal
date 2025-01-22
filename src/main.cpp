@@ -34,8 +34,10 @@ int main()
     instanceExtensions.push_back("VK_EXT_debug_report");
     VkInstance instance = RHI::Instance::create_instance(layers, instanceExtensions, false);
 
-    VkDebugUtilsMessengerEXT debugMessenger = RHI::Instance::Debug::create_debug_messenger(instance);
-    VkDebugReportCallbackEXT debugReport = RHI::Instance::Debug::create_debug_report_callback(instance);
+    VkDebugUtilsMessengerEXT debugMessenger =
+        RHI::Instance::Debug::create_debug_messenger(instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
+    VkDebugReportCallbackEXT debugReport =
+        RHI::Instance::Debug::create_debug_report_callback(instance, VK_DEBUG_REPORT_ERROR_BIT_EXT);
 
     std::vector<VkPhysicalDevice> physicalDevices = RHI::Device::get_physical_devices(instance);
     for (auto physicalDevice : physicalDevices)
@@ -155,9 +157,9 @@ int main()
                                                    }};
     VkDescriptorPool descriptorPool =
         RHI::Pipeline::Shader::create_descriptor_pool(device, poolSizes, frameInFlightCount);
-    std::vector<VkDescriptorSetLayout> uniformBufferSetLayouts(frameInFlightCount, setLayouts[0]);
-    std::vector<VkDescriptorSet> descriptorSets = RHI::Pipeline::Shader::allocate_desriptor_sets(
-        device, descriptorPool, frameInFlightCount, uniformBufferSetLayouts);
+    std::vector<VkDescriptorSetLayout> uniformSetLayouts(frameInFlightCount, setLayouts[0]);
+    std::vector<VkDescriptorSet> descriptorSets =
+        RHI::Pipeline::Shader::allocate_desriptor_sets(device, descriptorPool, frameInFlightCount, uniformSetLayouts);
 
     std::vector<unsigned char> imagePixels = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 0, 255, 255};
     auto texture = RHI::Memory::Image::create_image_texture_from_data(
@@ -215,13 +217,13 @@ int main()
         };
         memcpy(uniformBufferMapped[imageIndex], &ubo, sizeof(ubo));
 
-        RHI::Render::record_back_buffer_pipeline_commands(commandBuffers[backBufferIndex], renderPass,
+        RHI::Render::record_back_buffer_begin_render_pass(commandBuffers[backBufferIndex], renderPass,
                                                           framebuffers[imageIndex], extent, pipeline);
         RHI::Render::record_back_buffer_descriptor_sets_commands(commandBuffers[backBufferIndex], pipelineLayout,
                                                                  descriptorSets[backBufferIndex]);
         RHI::Render::record_back_buffer_draw_indexed_object_commands(
             commandBuffers[backBufferIndex], vertexBuffer.first, indexBuffer.first, indices.size());
-        RHI::Render::record_back_buffer_end(commandBuffers[backBufferIndex]);
+        RHI::Render::record_back_buffer_end_render_pass(commandBuffers[backBufferIndex]);
 
         RHI::Render::submit_back_buffer(graphicsQueue, commandBuffers[backBufferIndex],
                                         acquireSemaphores[backBufferIndex], renderSemaphores[backBufferIndex],
