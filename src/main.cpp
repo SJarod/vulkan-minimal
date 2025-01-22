@@ -33,7 +33,7 @@ int main()
     std::vector<const char *> instanceExtensions = WSI::get_required_extensions();
     instanceExtensions.push_back("VK_EXT_debug_utils");
     instanceExtensions.push_back("VK_EXT_debug_report");
-    VkInstance instance = RHI::Instance::create_instance(layers, instanceExtensions);
+    VkInstance instance = RHI::Instance::create_instance(layers, instanceExtensions, false);
 
     VkDebugUtilsMessengerEXT debugMessenger = RHI::Instance::Debug::create_debug_messenger(instance);
     VkDebugReportCallbackEXT debugReport = RHI::Instance::Debug::create_debug_report_callback(instance);
@@ -63,8 +63,12 @@ int main()
         RHI::Presentation::SwapChain::create_swap_chain(physicalDevice, device, surface, surfaceFormat.value(),
                                                         static_cast<uint32_t>(width), static_cast<uint32_t>(height));
     std::vector<VkImage> swapchainImages = RHI::Presentation::SwapChain::get_swap_chain_images(device, swapchain);
-    std::vector<VkImageView> swapchainImageViews = RHI::Presentation::SwapChain::create_swap_chain_image_views(
-        device, swapchain, swapchainImages, surfaceFormat->format);
+    std::vector<VkImageView> swapchainImageViews(swapchainImages.size());
+    for (int i = 0; i < swapchainImageViews.size(); ++i)
+    {
+        swapchainImageViews[i] =
+            RHI::Memory::Image::create_image_view(device, swapchainImages[i], surfaceFormat->format);
+    }
     uint32_t frameInFlightCount = static_cast<uint32_t>(swapchainImages.size());
 
     VkRenderPass renderPass = RHI::RenderPass::create_render_pass(device, surfaceFormat->format);
@@ -73,7 +77,23 @@ int main()
     std::vector<VkFramebuffer> framebuffers =
         RHI::RenderPass::create_framebuffers(device, renderPass, swapchainImageViews, extent);
 
-    std::vector<VkDescriptorSetLayout> setLayouts = {RHI::Pipeline::Shader::create_descriptor_set_layout(device)};
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+        VkDescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = nullptr,
+        },
+        VkDescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr,
+        }};
+    std::vector<VkDescriptorSetLayout> setLayouts = {
+        RHI::Pipeline::Shader::create_descriptor_set_layout(device, setLayoutBindings)};
     VkPipelineLayout pipelineLayout = RHI::Pipeline::Shader::create_pipeline_layout(device, setLayouts);
     VkPipeline pipeline = RHI::Pipeline::create_pipeline(device, renderPass, "triangle", extent, pipelineLayout);
 
@@ -126,10 +146,26 @@ int main()
         vkMapMemory(device, uniformBuffers[i].second, 0, uniformBufferSize, 0, &uniformBufferMapped[i]);
     }
 
-    VkDescriptorPool descriptorPool = RHI::Pipeline::Shader::create_descriptor_pool(device, frameInFlightCount);
+    std::vector<VkDescriptorPoolSize> poolSizes = {VkDescriptorPoolSize{
+                                                       .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                       .descriptorCount = frameInFlightCount,
+                                                   },
+                                                   VkDescriptorPoolSize{
+                                                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                       .descriptorCount = frameInFlightCount,
+                                                   }};
+    VkDescriptorPool descriptorPool =
+        RHI::Pipeline::Shader::create_descriptor_pool(device, poolSizes, frameInFlightCount);
     std::vector<VkDescriptorSetLayout> uniformBufferSetLayouts(frameInFlightCount, setLayouts[0]);
     std::vector<VkDescriptorSet> descriptorSets = RHI::Pipeline::Shader::allocate_desriptor_sets(
         device, descriptorPool, frameInFlightCount, uniformBufferSetLayouts);
+
+    std::vector<glm::vec4> imagePixels = {
+        {1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f}, {1.f, 0.f, 1.f, 1.f}};
+    auto texture = RHI::Memory::Image::create_image_texture_from_data(device, physicalDevice, 2, 2, imagePixels.data(),
+                                                                      commandPoolTransient, graphicsQueue);
+    VkImageView textureView = RHI::Memory::Image::create_image_view(device, texture.first, VK_FORMAT_R8G8B8A8_SRGB);
+    VkSampler sampler = RHI::Memory::Image::create_image_sampler(device, VK_FILTER_LINEAR);
 
     for (int i = 0; i < frameInFlightCount; ++i)
     {
@@ -138,14 +174,33 @@ int main()
             .offset = 0,
             .range = sizeof(RHI::Pipeline::Shader::UniformBufferObjectT),
         };
-        RHI::Pipeline::Shader::write_descriptor_sets(device, descriptorSets[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                     nullptr, &bufferInfo);
+        VkDescriptorImageInfo imageInfo = {
+            .sampler = sampler,
+            .imageView = textureView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+        std::vector<VkWriteDescriptorSet> writes = {VkWriteDescriptorSet{
+                                                        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                                        .dstSet = descriptorSets[i],
+                                                        .dstBinding = 0,
+                                                        .dstArrayElement = 0,
+                                                        .descriptorCount = 1,
+                                                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                        .pBufferInfo = &bufferInfo,
+                                                        .pTexelBufferView = nullptr,
+                                                    },
+                                                    VkWriteDescriptorSet{
+                                                        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                                        .dstSet = descriptorSets[i],
+                                                        .dstBinding = 1,
+                                                        .dstArrayElement = 0,
+                                                        .descriptorCount = 1,
+                                                        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                        .pImageInfo = &imageInfo,
+                                                        .pTexelBufferView = nullptr,
+                                                    }};
+        RHI::Pipeline::Shader::write_descriptor_sets(device, writes);
     }
-
-    std::vector<glm::vec4> imagePixels = {
-        {1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f}, {1.f, 0.f, 1.f, 1.f}};
-    auto texture = RHI::Memory::Image::create_image_texture_from_data(device, physicalDevice, 2, 2, imagePixels.data(),
-                                                                      commandPoolTransient, graphicsQueue);
 
     uint32_t backBufferIndex = 0;
     while (!WSI::should_close(window))
@@ -182,6 +237,8 @@ int main()
 
     vkDeviceWaitIdle(device);
 
+    RHI::Memory::Image::destroy_image_sampler(device, sampler);
+    RHI::Memory::Image::destroy_image_view(device, textureView);
     RHI::Memory::free_memory(device, texture.second);
     RHI::Memory::Image::destroy_image(device, texture.first);
 
@@ -223,7 +280,10 @@ int main()
 
     RHI::RenderPass::destroy_render_pass(device, renderPass);
 
-    RHI::Presentation::SwapChain::destroy_swap_chain_image_views(device, swapchainImageViews);
+    for (int i = 0; i < swapchainImageViews.size(); ++i)
+    {
+        RHI::Memory::Image::destroy_image_view(device, swapchainImageViews[i]);
+    }
     RHI::Presentation::SwapChain::destroy_swap_chain(device, swapchain);
 
     RHI::Device::destroy_logical_device(device);

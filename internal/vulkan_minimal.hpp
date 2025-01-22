@@ -566,43 +566,6 @@ inline std::vector<VkImage> get_swap_chain_images(VkDevice device, VkSwapchainKH
     vkGetSwapchainImagesKHR(device, swapchain, &count, images.data());
     return images;
 }
-
-inline std::vector<VkImageView> create_swap_chain_image_views(VkDevice device, VkSwapchainKHR swapchain,
-                                                              std::vector<VkImage> images, VkFormat imageFormat)
-{
-    std::vector<VkImageView> swapchainImageViews;
-    swapchainImageViews.resize(images.size());
-
-    for (size_t i = 0; i < images.size(); ++i)
-    {
-        VkImageViewCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                                            .image = images[i],
-                                            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                                            .format = imageFormat,
-                                            .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                           .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                           .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                           .a = VK_COMPONENT_SWIZZLE_IDENTITY},
-                                            .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                 .baseMipLevel = 0,
-                                                                 .levelCount = 1,
-                                                                 .baseArrayLayer = 0,
-                                                                 .layerCount = 1}};
-
-        VkResult res = vkCreateImageView(device, &createInfo, nullptr, &swapchainImageViews[i]);
-        if (res != VK_SUCCESS)
-            std::cerr << "Failed to create an image view : " << res << std::endl;
-    }
-
-    return swapchainImageViews;
-}
-inline void destroy_swap_chain_image_views(VkDevice device, std::vector<VkImageView> swapchainImageViews)
-{
-    for (VkImageView &imageView : swapchainImageViews)
-    {
-        vkDestroyImageView(device, imageView, nullptr);
-    }
-}
 } // namespace SwapChain
 } // namespace Presentation
 
@@ -736,20 +699,13 @@ inline std::array<VkVertexInputAttributeDescription, 2> get_vertex_attribute_des
     return desc;
 }
 
-inline VkDescriptorSetLayout create_descriptor_set_layout(VkDevice device)
+inline VkDescriptorSetLayout create_descriptor_set_layout(VkDevice device,
+                                                          std::vector<VkDescriptorSetLayoutBinding> layoutBindings)
 {
-    VkDescriptorSetLayoutBinding setLayoutBinding = {
-        .binding = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .pImmutableSamplers = nullptr,
-    };
-
     VkDescriptorSetLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &setLayoutBinding,
+        .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
+        .pBindings = layoutBindings.data(),
     };
 
     VkDescriptorSetLayout setLayout;
@@ -784,18 +740,14 @@ inline void destroy_pipeline_layout(VkDevice device, VkPipelineLayout pipelineLa
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 }
 
-inline VkDescriptorPool create_descriptor_pool(VkDevice device, uint32_t frameInFlightCount)
+inline VkDescriptorPool create_descriptor_pool(VkDevice device, std::vector<VkDescriptorPoolSize> poolSizes,
+                                               uint32_t frameInFlightCount)
 {
-    VkDescriptorPoolSize poolSize = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = frameInFlightCount,
-    };
-
     VkDescriptorPoolCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .maxSets = frameInFlightCount,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data(),
     };
 
     VkDescriptorPool descriptorPool;
@@ -829,22 +781,9 @@ inline std::vector<VkDescriptorSet> allocate_desriptor_sets(VkDevice device, VkD
     return descriptorSets;
 }
 
-inline void write_descriptor_sets(VkDevice device, VkDescriptorSet descriptorSet, VkDescriptorType descriptorType,
-                                  VkDescriptorImageInfo *imageInfo, VkDescriptorBufferInfo *bufferInfo)
+inline void write_descriptor_sets(VkDevice device, std::vector<VkWriteDescriptorSet> writes)
 {
-    VkWriteDescriptorSet write = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = descriptorSet,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = descriptorType,
-        .pImageInfo = imageInfo,
-        .pBufferInfo = bufferInfo,
-        .pTexelBufferView = nullptr,
-    };
-
-    vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 } // namespace Shader
 
@@ -1400,6 +1339,68 @@ inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(VkDevic
     Buffer::destroy_buffer(device, stagingBuffer.first);
 
     return image;
+}
+
+inline VkImageView create_image_view(VkDevice device, VkImage image, VkFormat imageFormat)
+{
+    VkImageViewCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                                        .image = image,
+                                        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                                        .format = imageFormat,
+                                        .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                       .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                       .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                       .a = VK_COMPONENT_SWIZZLE_IDENTITY},
+                                        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                             .baseMipLevel = 0,
+                                                             .levelCount = 1,
+                                                             .baseArrayLayer = 0,
+                                                             .layerCount = 1}};
+
+    VkImageView imageView;
+    VkResult res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to create image view : " << res << std::endl;
+
+    return imageView;
+}
+inline void destroy_image_view(VkDevice device, VkImageView imageView)
+{
+    vkDestroyImageView(device, imageView, nullptr);
+}
+
+inline VkSampler create_image_sampler(VkDevice device, VkFilter filter, bool bEnableAnisotropy = false,
+                                      float maxAnisotropy = 1.f)
+{
+    VkSamplerCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = filter,
+        .minFilter = filter,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .mipLodBias = 0.f,
+        .anisotropyEnable = bEnableAnisotropy,
+        .maxAnisotropy = maxAnisotropy,
+        .compareEnable = VK_FALSE,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .minLod = 0.f,
+        .maxLod = 0.f,
+        .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+        .unnormalizedCoordinates = VK_FALSE,
+    };
+
+    VkSampler sampler;
+    VkResult res = vkCreateSampler(device, &createInfo, nullptr, &sampler);
+    if (res != VK_SUCCESS)
+        std::cerr << "Failed to create image sampler : " << res << std::endl;
+
+    return sampler;
+}
+inline void destroy_image_sampler(VkDevice device, VkSampler sampler)
+{
+    vkDestroySampler(device, sampler, nullptr);
 }
 } // namespace Image
 } // namespace Memory
