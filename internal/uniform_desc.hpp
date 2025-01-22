@@ -27,11 +27,22 @@ inline std::vector<VkDescriptorSetLayoutBinding> get_uniform_descriptor_set_layo
     return setLayoutBindings;
 }
 
+inline std::vector<VkDescriptorPoolSize> get_uniform_descriptor_pool_sizes(uint32_t frameInFlightCount)
+{
+    std::vector<VkDescriptorPoolSize> poolSizes = {VkDescriptorPoolSize{
+                                                       .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                       .descriptorCount = frameInFlightCount,
+                                                   },
+                                                   VkDescriptorPoolSize{
+                                                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                       .descriptorCount = frameInFlightCount,
+                                                   }};
+    return poolSizes;
+}
 inline std::vector<VkWriteDescriptorSet> get_uniform_descriptor_set_writes(VkDescriptorSet descriptorSet,
                                                                            const VkDescriptorBufferInfo &bufferInfo,
                                                                            const VkDescriptorImageInfo &imageInfo)
 {
-
     return std::vector<VkWriteDescriptorSet>{VkWriteDescriptorSet{
                                                  .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                                                  .dstSet = descriptorSet,
@@ -52,18 +63,5 @@ inline std::vector<VkWriteDescriptorSet> get_uniform_descriptor_set_writes(VkDes
                                                  .pImageInfo = &imageInfo,
                                                  .pTexelBufferView = nullptr,
                                              }};
-}
-
-inline std::vector<VkDescriptorPoolSize> get_uniform_descriptor_pool_sizes(uint32_t frameInFlightCount)
-{
-    std::vector<VkDescriptorPoolSize> poolSizes = {VkDescriptorPoolSize{
-                                                       .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                       .descriptorCount = frameInFlightCount,
-                                                   },
-                                                   VkDescriptorPoolSize{
-                                                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                       .descriptorCount = frameInFlightCount,
-                                                   }};
-    return poolSizes;
 }
 } // namespace UniformDesc
