@@ -9,7 +9,6 @@
 
 int main()
 {
-    // TODO : textures
     // TODO : better pipeline creation
 
     WSI::init();
@@ -116,10 +115,10 @@ int main()
 
     // vertex buffer
 
-    const std::vector<Vertex> vertices = {{{-0.5f, -0.5f, 0.f}, {1.f, 0.f, 0.f, 1.f}},
-                                          {{0.5f, -0.5f, 0.f}, {0.f, 1.f, 0.f, 1.f}},
-                                          {{0.5f, 0.5f, 0.f}, {0.f, 0.f, 1.f, 1.f}},
-                                          {{-0.5f, 0.5f, 0.f}, {1.f, 1.f, 1.f, 1.f}}};
+    const std::vector<Vertex> vertices = {{{-0.5f, -0.5f, 0.f}, {1.f, 0.f, 0.f, 1.f}, {1.f, 0.f}},
+                                          {{0.5f, -0.5f, 0.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f}},
+                                          {{0.5f, 0.5f, 0.f}, {0.f, 0.f, 1.f, 1.f}, {0.f, 1.f}},
+                                          {{-0.5f, 0.5f, 0.f}, {1.f, 1.f, 1.f, 1.f}, {1.f, 1.f}}};
     size_t vertexBufferSize = sizeof(Vertex) * vertices.size();
     auto vertexBuffer = RHI::Memory::Buffer::create_optimal_buffer_from_data(
         device, physicalDevice, vertexBufferSize, vertices.data(), commandPoolTransient, graphicsQueue,
@@ -160,12 +159,11 @@ int main()
     std::vector<VkDescriptorSet> descriptorSets = RHI::Pipeline::Shader::allocate_desriptor_sets(
         device, descriptorPool, frameInFlightCount, uniformBufferSetLayouts);
 
-    std::vector<glm::vec4> imagePixels = {
-        {1.f, 0.f, 0.f, 1.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f, 1.f, 1.f}, {1.f, 0.f, 1.f, 1.f}};
-    auto texture = RHI::Memory::Image::create_image_texture_from_data(device, physicalDevice, 2, 2, imagePixels.data(),
-                                                                      commandPoolTransient, graphicsQueue);
+    std::vector<unsigned char> imagePixels = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 0, 255, 255};
+    auto texture = RHI::Memory::Image::create_image_texture_from_data(
+        device, physicalDevice, 2, 2, imagePixels.data(), commandPoolTransient, graphicsQueue, VK_FORMAT_R8G8B8A8_SRGB);
     VkImageView textureView = RHI::Memory::Image::create_image_view(device, texture.first, VK_FORMAT_R8G8B8A8_SRGB);
-    VkSampler sampler = RHI::Memory::Image::create_image_sampler(device, VK_FILTER_LINEAR);
+    VkSampler sampler = RHI::Memory::Image::create_image_sampler(device, VK_FILTER_NEAREST);
 
     for (int i = 0; i < frameInFlightCount; ++i)
     {

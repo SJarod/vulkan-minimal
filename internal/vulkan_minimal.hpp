@@ -690,12 +690,13 @@ inline VkVertexInputBindingDescription get_vertex_binding_description()
     return desc;
 }
 // 2 attributes descripction
-inline std::array<VkVertexInputAttributeDescription, 2> get_vertex_attribute_description()
+inline std::array<VkVertexInputAttributeDescription, 3> get_vertex_attribute_description()
 {
     // attribute pointer
-    std::array<VkVertexInputAttributeDescription, 2> desc;
-    desc[0] = {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, position)};
+    std::array<VkVertexInputAttributeDescription, 3> desc;
+    desc[0] = {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, position)};
     desc[1] = {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = offsetof(Vertex, color)};
+    desc[2] = {.location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, uv)};
     return desc;
 }
 
@@ -1307,11 +1308,9 @@ void copy_buffer_to_image(VkDevice device, VkCommandPool commandPoolTransient, u
     Command::command_buffer_end_one_time_submit(commandBuffer, device, queue, commandPoolTransient);
 }
 
-inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(VkDevice device,
-                                                                         VkPhysicalDevice physicalDevice,
-                                                                         uint32_t width, uint32_t height, void *data,
-                                                                         VkCommandPool commandPoolTransient,
-                                                                         VkQueue graphicsQueue)
+inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(
+    VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, void *data,
+    VkCommandPool commandPoolTransient, VkQueue graphicsQueue, VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB)
 {
 
     size_t imageSize = width * height * 4;
@@ -1322,9 +1321,9 @@ inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(VkDevic
 
     copy_data_to_memory(device, stagingBuffer.second, data, imageSize);
 
-    auto image = create_allocated_image(
-        device, physicalDevice, width, height, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    auto image = create_allocated_image(device, physicalDevice, width, height,
+                                        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, imageFormat,
+                                        VK_IMAGE_TILING_OPTIMAL, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     transition_image_layout(device, commandPoolTransient, graphicsQueue, VK_IMAGE_LAYOUT_UNDEFINED,
                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, image.first, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -1347,10 +1346,13 @@ inline VkImageView create_image_view(VkDevice device, VkImage image, VkFormat im
                                         .image = image,
                                         .viewType = VK_IMAGE_VIEW_TYPE_2D,
                                         .format = imageFormat,
-                                        .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                       .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                       .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                       .a = VK_COMPONENT_SWIZZLE_IDENTITY},
+                                        .components =
+                                            {
+                                                .r = VK_COMPONENT_SWIZZLE_R,
+                                                .g = VK_COMPONENT_SWIZZLE_G,
+                                                .b = VK_COMPONENT_SWIZZLE_B,
+                                                .a = VK_COMPONENT_SWIZZLE_A,
+                                            },
                                         .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                                                              .baseMipLevel = 0,
                                                              .levelCount = 1,

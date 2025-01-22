@@ -8,4 +8,5 @@ class Vertex
     // 2 attributes
     glm::vec3 position;
     glm::vec4 color;
+    glm::vec2 uv;
 };
