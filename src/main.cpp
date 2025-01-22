@@ -184,7 +184,7 @@ int main()
         RHI::Render::record_back_buffer_begin_render_pass(commandBuffers[backBufferIndex], renderPass,
                                                           framebuffers[imageIndex], extent, pipeline);
         RHI::Render::record_back_buffer_descriptor_sets_commands(commandBuffers[backBufferIndex], pipelineLayout,
-                                                                 descriptorSets[backBufferIndex]);
+                                                                 descriptorSets[imageIndex]);
         RHI::Render::record_back_buffer_draw_indexed_object_commands(
             commandBuffers[backBufferIndex], vertexBuffer.first, indexBuffer.first, indices.size());
         RHI::Render::record_back_buffer_end_render_pass(commandBuffers[backBufferIndex]);
