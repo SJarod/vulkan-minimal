@@ -126,14 +126,14 @@ int main()
     // uniform buffers
 
     std::vector<std::pair<VkBuffer, VkDeviceMemory>> uniformBuffers(frameInFlightCount);
-    std::vector<void *> uniformBufferMapped(frameInFlightCount);
+    std::vector<void *> uniformBuffersMapped(frameInFlightCount);
     size_t uniformBufferSize = sizeof(UniformBufferObjectT);
     for (int i = 0; i < frameInFlightCount; ++i)
     {
         uniformBuffers[i] = RHI::Memory::Buffer::create_allocated_buffer(
             device, physicalDevice, uniformBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        vkMapMemory(device, uniformBuffers[i].second, 0, uniformBufferSize, 0, &uniformBufferMapped[i]);
+        vkMapMemory(device, uniformBuffers[i].second, 0, uniformBufferSize, 0, &uniformBuffersMapped[i]);
     }
 
     std::vector<VkDescriptorPoolSize> poolSizes = UniformDesc::get_uniform_descriptor_pool_sizes(frameInFlightCount);
@@ -179,7 +179,7 @@ int main()
             .view = glm::lookAt(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.)),
             .proj = glm::perspective(glm::radians(45.f), extent.width / (float)extent.height, 0.1f, 1000.f),
         };
-        memcpy(uniformBufferMapped[imageIndex], &ubo, sizeof(ubo));
+        memcpy(uniformBuffersMapped[imageIndex], &ubo, sizeof(ubo));
 
         RHI::Render::record_back_buffer_begin_render_pass(commandBuffers[backBufferIndex], renderPass,
                                                           framebuffers[imageIndex], extent, pipeline);
