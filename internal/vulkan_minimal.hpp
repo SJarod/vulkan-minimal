@@ -14,6 +14,7 @@
 
 #include "utils.hpp"
 #include "vertex.hpp"
+#include "vertex_desc.hpp"
 
 #include <glm/glm.hpp>
 
@@ -653,13 +654,6 @@ namespace Pipeline
 {
 namespace Shader
 {
-struct UniformBufferObjectT
-{
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
-
 inline VkShaderModule create_shader_module(VkDevice device, const std::vector<char> &code)
 {
     VkShaderModuleCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -676,28 +670,6 @@ inline VkShaderModule create_shader_module(VkDevice device, const std::vector<ch
 inline void destroy_shader_module(VkDevice device, VkShaderModule module)
 {
     vkDestroyShaderModule(device, module, nullptr);
-}
-
-// binding the data to the vertex shader
-inline VkVertexInputBindingDescription get_vertex_binding_description()
-{
-    // describe the buffer data
-    VkVertexInputBindingDescription desc = {.binding = 0,
-                                            .stride = sizeof(Vertex),
-                                            // update every vertex (opposed to VK_VERTEX_INPUT_RATE_INSTANCE)
-                                            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
-
-    return desc;
-}
-// 2 attributes descripction
-inline std::array<VkVertexInputAttributeDescription, 3> get_vertex_attribute_description()
-{
-    // attribute pointer
-    std::array<VkVertexInputAttributeDescription, 3> desc;
-    desc[0] = {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, position)};
-    desc[1] = {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = offsetof(Vertex, color)};
-    desc[2] = {.location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, uv)};
-    return desc;
 }
 
 inline VkDescriptorSetLayout create_descriptor_set_layout(VkDevice device,
@@ -782,7 +754,7 @@ inline std::vector<VkDescriptorSet> allocate_desriptor_sets(VkDevice device, VkD
     return descriptorSets;
 }
 
-inline void write_descriptor_sets(VkDevice device, std::vector<VkWriteDescriptorSet> writes)
+inline void write_descriptor_sets(VkDevice device, const std::vector<VkWriteDescriptorSet> &writes)
 {
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
@@ -824,8 +796,8 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .pDynamicStates = dynamicStates.data()};
 
     // vertex (enabling the binding for the Vertex structure)
-    auto binding = Shader::get_vertex_binding_description();
-    auto attribs = Shader::get_vertex_attribute_description();
+    auto binding = VertexDesc::get_vertex_input_binding_description();
+    auto attribs = VertexDesc::get_vertex_input_attribute_description();
     VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,

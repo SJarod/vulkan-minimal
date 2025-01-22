@@ -4,9 +4,17 @@ add_library(${component} INTERFACE "")
 
 set_property(TARGET ${component}
     PROPERTY PUBLIC_HEADER
+    
+    uniform_desc.hpp
+    uniform.hpp
+
     utils.hpp
+    
+    vertex_desc.hpp
     vertex.hpp
+
     vulkan_minimal.hpp
+
     wsi.hpp
 )
 

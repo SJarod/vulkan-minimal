@@ -5,6 +5,8 @@
 
 #include "wsi.hpp"
 
+#include "uniform_desc.hpp"
+#include "vertex_desc.hpp"
 #include "vulkan_minimal.hpp"
 
 int main()
@@ -78,21 +80,8 @@ int main()
     std::vector<VkFramebuffer> framebuffers =
         RHI::RenderPass::create_framebuffers(device, renderPass, swapchainImageViews, extent);
 
-    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
-        VkDescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-            .pImmutableSamplers = nullptr,
-        },
-        VkDescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .pImmutableSamplers = nullptr,
-        }};
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings =
+        UniformDesc::get_uniform_descriptor_set_layout_bindings();
     std::vector<VkDescriptorSetLayout> setLayouts = {
         RHI::Pipeline::Shader::create_descriptor_set_layout(device, setLayoutBindings)};
     VkPipelineLayout pipelineLayout = RHI::Pipeline::Shader::create_pipeline_layout(device, setLayouts);
@@ -138,7 +127,7 @@ int main()
 
     std::vector<std::pair<VkBuffer, VkDeviceMemory>> uniformBuffers(frameInFlightCount);
     std::vector<void *> uniformBufferMapped(frameInFlightCount);
-    size_t uniformBufferSize = sizeof(RHI::Pipeline::Shader::UniformBufferObjectT);
+    size_t uniformBufferSize = sizeof(UniformBufferObjectT);
     for (int i = 0; i < frameInFlightCount; ++i)
     {
         uniformBuffers[i] = RHI::Memory::Buffer::create_allocated_buffer(
@@ -147,14 +136,7 @@ int main()
         vkMapMemory(device, uniformBuffers[i].second, 0, uniformBufferSize, 0, &uniformBufferMapped[i]);
     }
 
-    std::vector<VkDescriptorPoolSize> poolSizes = {VkDescriptorPoolSize{
-                                                       .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                       .descriptorCount = frameInFlightCount,
-                                                   },
-                                                   VkDescriptorPoolSize{
-                                                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                       .descriptorCount = frameInFlightCount,
-                                                   }};
+    std::vector<VkDescriptorPoolSize> poolSizes = UniformDesc::get_uniform_descriptor_pool_sizes(frameInFlightCount);
     VkDescriptorPool descriptorPool =
         RHI::Pipeline::Shader::create_descriptor_pool(device, poolSizes, frameInFlightCount);
     std::vector<VkDescriptorSetLayout> uniformSetLayouts(frameInFlightCount, setLayouts[0]);
@@ -172,33 +154,15 @@ int main()
         VkDescriptorBufferInfo bufferInfo = {
             .buffer = uniformBuffers[i].first,
             .offset = 0,
-            .range = sizeof(RHI::Pipeline::Shader::UniformBufferObjectT),
+            .range = sizeof(UniformBufferObjectT),
         };
         VkDescriptorImageInfo imageInfo = {
             .sampler = sampler,
             .imageView = textureView,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
-        std::vector<VkWriteDescriptorSet> writes = {VkWriteDescriptorSet{
-                                                        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                                                        .dstSet = descriptorSets[i],
-                                                        .dstBinding = 0,
-                                                        .dstArrayElement = 0,
-                                                        .descriptorCount = 1,
-                                                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                        .pBufferInfo = &bufferInfo,
-                                                        .pTexelBufferView = nullptr,
-                                                    },
-                                                    VkWriteDescriptorSet{
-                                                        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                                                        .dstSet = descriptorSets[i],
-                                                        .dstBinding = 1,
-                                                        .dstArrayElement = 0,
-                                                        .descriptorCount = 1,
-                                                        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                        .pImageInfo = &imageInfo,
-                                                        .pTexelBufferView = nullptr,
-                                                    }};
+        std::vector<VkWriteDescriptorSet> writes =
+            UniformDesc::get_uniform_descriptor_set_writes(descriptorSets[i], bufferInfo, imageInfo);
         RHI::Pipeline::Shader::write_descriptor_sets(device, writes);
     }
 
@@ -210,7 +174,7 @@ int main()
         uint32_t imageIndex = RHI::Render::acquire_back_buffer(device, swapchain, acquireSemaphores[backBufferIndex],
                                                                inFlightFences[backBufferIndex]);
 
-        RHI::Pipeline::Shader::UniformBufferObjectT ubo = {
+        UniformBufferObjectT ubo = {
             .model = glm::mat4(1.f),
             .view = glm::lookAt(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.)),
             .proj = glm::perspective(glm::radians(45.f), extent.width / (float)extent.height, 0.1f, 1000.f),
