@@ -1281,7 +1281,7 @@ inline void copy_buffer_to_image(VkDevice device, VkCommandPool commandPoolTrans
 }
 
 inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(
-    VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, void *data,
+    VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, const void *data,
     VkCommandPool commandPoolTransient, VkQueue graphicsQueue, VkFormat imageFormat = VK_FORMAT_R8G8B8A8_SRGB)
 {
     size_t imageSize = width * height * 4;

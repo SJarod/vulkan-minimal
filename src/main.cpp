@@ -143,7 +143,7 @@ int main()
     std::vector<VkDescriptorSet> descriptorSets =
         RHI::Pipeline::Shader::allocate_desriptor_sets(device, descriptorPool, frameInFlightCount, uniformSetLayouts);
 
-    std::vector<unsigned char> imagePixels = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 0, 255, 255};
+    const std::vector<unsigned char> imagePixels = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 0, 255, 255};
     auto texture = RHI::Memory::Image::create_image_texture_from_data(
         device, physicalDevice, 2, 2, imagePixels.data(), commandPoolTransient, graphicsQueue, VK_FORMAT_R8G8B8A8_SRGB);
     VkImageView textureView = RHI::Memory::Image::create_image_view(device, texture.first, VK_FORMAT_R8G8B8A8_SRGB);
