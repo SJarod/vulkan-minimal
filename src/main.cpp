@@ -67,16 +67,16 @@ int main()
     std::vector<VkImageView> swapchainImageViews(swapchainImages.size());
     for (int i = 0; i < swapchainImageViews.size(); ++i)
     {
-        swapchainImageViews[i] =
-            RHI::Memory::Image::create_image_view(device, swapchainImages[i], surfaceFormat->format);
+        swapchainImageViews[i] = RHI::Memory::Image::create_image_view(
+            device, swapchainImages[i], surfaceFormat->format, VK_IMAGE_ASPECT_COLOR_BIT);
     }
     uint32_t frameInFlightCount = static_cast<uint32_t>(swapchainImages.size());
     VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
     auto swapchainDepthImage = RHI::Memory::Image::create_allocated_image(
         device, physicalDevice, width, height, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageFormat,
         VK_IMAGE_TILING_OPTIMAL, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    VkImageView swapchainDepthImageView =
-        RHI::Memory::Image::create_image_view(device, swapchainDepthImage.first, depthImageFormat);
+    VkImageView swapchainDepthImageView = RHI::Memory::Image::create_image_view(
+        device, swapchainDepthImage.first, depthImageFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VkRenderPass renderPass = RHI::RenderPass::create_render_pass(device, surfaceFormat->format, depthImageFormat);
 
@@ -113,7 +113,11 @@ int main()
     const std::vector<Vertex> vertices = {{{-0.5f, -0.5f, 0.f}, {1.f, 0.f, 0.f, 1.f}, {1.f, 0.f}},
                                           {{0.5f, -0.5f, 0.f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f}},
                                           {{0.5f, 0.5f, 0.f}, {0.f, 0.f, 1.f, 1.f}, {0.f, 1.f}},
-                                          {{-0.5f, 0.5f, 0.f}, {1.f, 1.f, 1.f, 1.f}, {1.f, 1.f}}};
+                                          {{-0.5f, 0.5f, 0.f}, {1.f, 1.f, 1.f, 1.f}, {1.f, 1.f}},
+                                          {{-0.5f, -0.5f, -0.5f}, {1.f, 0.f, 0.f, 1.f}, {1.f, 0.f}},
+                                          {{0.5f, -0.5f, -0.5f}, {0.f, 1.f, 0.f, 1.f}, {0.f, 0.f}},
+                                          {{0.5f, 0.5f, -0.5f}, {0.f, 0.f, 1.f, 1.f}, {0.f, 1.f}},
+                                          {{-0.5f, 0.5f, -0.5f}, {1.f, 1.f, 1.f, 1.f}, {1.f, 1.f}}};
     size_t vertexBufferSize = sizeof(Vertex) * vertices.size();
     auto vertexBuffer = RHI::Memory::Buffer::create_optimal_buffer_from_data(
         device, physicalDevice, vertexBufferSize, vertices.data(), commandPoolTransient, graphicsQueue,
@@ -121,7 +125,7 @@ int main()
 
     // index buffer
 
-    const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+    const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
     size_t indexBufferSize = sizeof(uint16_t) * indices.size();
     auto indexBuffer = RHI::Memory::Buffer::create_optimal_buffer_from_data(
         device, physicalDevice, indexBufferSize, indices.data(), commandPoolTransient, graphicsQueue,
@@ -150,7 +154,8 @@ int main()
     const std::vector<unsigned char> imagePixels = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 0, 255, 255};
     auto texture = RHI::Memory::Image::create_image_texture_from_data(
         device, physicalDevice, 2, 2, imagePixels.data(), commandPoolTransient, graphicsQueue, VK_FORMAT_R8G8B8A8_SRGB);
-    VkImageView textureView = RHI::Memory::Image::create_image_view(device, texture.first, VK_FORMAT_R8G8B8A8_SRGB);
+    VkImageView textureView = RHI::Memory::Image::create_image_view(device, texture.first, VK_FORMAT_R8G8B8A8_SRGB,
+                                                                    VK_IMAGE_ASPECT_COLOR_BIT);
     VkSampler sampler = RHI::Memory::Image::create_image_sampler(device, VK_FILTER_NEAREST);
 
     for (int i = 0; i < frameInFlightCount; ++i)

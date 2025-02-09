@@ -1294,7 +1294,8 @@ inline std::pair<VkImage, VkDeviceMemory> create_allocated_image(
 inline void transition_image_layout(VkDevice device, VkCommandPool commandPoolTransient, VkQueue queue,
                                     VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image,
                                     VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
-                                    VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
+                                    VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
+                                    VkImageAspectFlags aspectFlag)
 {
     VkCommandBuffer commandBuffer = Command::command_buffer_begin_one_time_submit(device, commandPoolTransient);
 
@@ -1309,7 +1310,7 @@ inline void transition_image_layout(VkDevice device, VkCommandPool commandPoolTr
         .image = image,
         .subresourceRange =
             {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .aspectMask = aspectFlag,
                 .baseMipLevel = 0,
                 .levelCount = 1,
                 .baseArrayLayer = 0,
@@ -1374,12 +1375,13 @@ inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(
 
     transition_image_layout(device, commandPoolTransient, graphicsQueue, VK_IMAGE_LAYOUT_UNDEFINED,
                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, image.first, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
-                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                            VK_IMAGE_ASPECT_COLOR_BIT);
     copy_buffer_to_image(device, commandPoolTransient, width, height, stagingBuffer.first, image.first, graphicsQueue);
     transition_image_layout(device, commandPoolTransient, graphicsQueue, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, image.first, VK_ACCESS_TRANSFER_WRITE_BIT,
                             VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
     free_memory(device, stagingBuffer.second);
     Buffer::destroy_buffer(device, stagingBuffer.first);
@@ -1387,7 +1389,8 @@ inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(
     return image;
 }
 
-inline VkImageView create_image_view(VkDevice device, VkImage image, VkFormat imageFormat)
+inline VkImageView create_image_view(VkDevice device, VkImage image, VkFormat imageFormat,
+                                     VkImageAspectFlags aspectFlag)
 {
     VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -1401,11 +1404,14 @@ inline VkImageView create_image_view(VkDevice device, VkImage image, VkFormat im
                 .b = VK_COMPONENT_SWIZZLE_B,
                 .a = VK_COMPONENT_SWIZZLE_A,
             },
-        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1},
+        .subresourceRange =
+            {
+                .aspectMask = aspectFlag,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
     };
 
     VkImageView imageView;
