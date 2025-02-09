@@ -56,12 +56,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report_callback_instance(VkDebugRepo
 inline VkInstance create_instance(std::vector<const char *> layers, std::vector<const char *> instanceExtensions,
                                   bool bDebugReportCallback = true)
 {
-    VkApplicationInfo appInfo = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                                 .pApplicationName = "Vulkan Minimal",
-                                 .applicationVersion = VK_MAKE_VERSION(0, 0, 0),
-                                 .pEngineName = "Vulkan Renderer",
-                                 .engineVersion = VK_MAKE_VERSION(0, 0, 0),
-                                 .apiVersion = VK_API_VERSION_1_3};
+    VkApplicationInfo appInfo = {
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pApplicationName = "Vulkan Minimal",
+        .applicationVersion = VK_MAKE_VERSION(0, 0, 0),
+        .pEngineName = "Vulkan Renderer",
+        .engineVersion = VK_MAKE_VERSION(0, 0, 0),
+        .apiVersion = VK_API_VERSION_1_3,
+    };
 
     VkDebugReportCallbackCreateInfoEXT debugReportCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
@@ -71,13 +73,15 @@ inline VkInstance create_instance(std::vector<const char *> layers, std::vector<
         .pfnCallback = debug_report_callback_instance,
         .pUserData = nullptr,
     };
-    VkInstanceCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                                       .pNext = bDebugReportCallback ? &debugReportCreateInfo : nullptr,
-                                       .pApplicationInfo = &appInfo,
-                                       .enabledLayerCount = static_cast<uint32_t>(layers.size()),
-                                       .ppEnabledLayerNames = layers.data(),
-                                       .enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size()),
-                                       .ppEnabledExtensionNames = instanceExtensions.data()};
+    VkInstanceCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pNext = bDebugReportCallback ? &debugReportCreateInfo : nullptr,
+        .pApplicationInfo = &appInfo,
+        .enabledLayerCount = static_cast<uint32_t>(layers.size()),
+        .ppEnabledLayerNames = layers.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size()),
+        .ppEnabledExtensionNames = instanceExtensions.data(),
+    };
 
     VkInstance instance;
     VkResult res = vkCreateInstance(&createInfo, nullptr, &instance);
@@ -154,13 +158,14 @@ inline VkDebugUtilsMessengerEXT create_debug_messenger(
                                                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                                                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 {
-    VkDebugUtilsMessengerCreateInfoEXT createInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-                                                     .messageSeverity = messageType,
-                                                     .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                                                    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                                                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-                                                     .pfnUserCallback = debug_messenger_callback,
-                                                     .pUserData = nullptr};
+    VkDebugUtilsMessengerCreateInfoEXT createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .messageSeverity = messageType,
+        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        .pfnUserCallback = debug_messenger_callback,
+        .pUserData = nullptr,
+    };
 
     VkDebugUtilsMessengerEXT messenger;
     VkResult res = vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &messenger);
@@ -377,19 +382,23 @@ inline VkDevice create_logical_device(VkInstance instance, VkPhysicalDevice phys
     float queuePriority = 1.f;
     for (uint32_t queueFamilyIndex : queueFamilyIndices)
     {
-        queueCreateInfos.emplace_back(VkDeviceQueueCreateInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                                                              .queueFamilyIndex = queueFamilyIndex,
-                                                              .queueCount = 1,
-                                                              .pQueuePriorities = &queuePriority});
+        queueCreateInfos.emplace_back(VkDeviceQueueCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = queueFamilyIndex,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority,
+        });
     }
 
-    VkDeviceCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-                                     .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
-                                     .pQueueCreateInfos = queueCreateInfos.data(),
-                                     .enabledLayerCount = static_cast<uint32_t>(layers.size()),
-                                     .ppEnabledLayerNames = layers.data(),
-                                     .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
-                                     .ppEnabledExtensionNames = deviceExtensions.data()};
+    VkDeviceCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+        .pQueueCreateInfos = queueCreateInfos.data(),
+        .enabledLayerCount = static_cast<uint32_t>(layers.size()),
+        .ppEnabledLayerNames = layers.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
+        .ppEnabledExtensionNames = deviceExtensions.data(),
+    };
 
     VkDevice device;
     VkResult res = vkCreateDevice(physicalDevice, &createInfo, nullptr, &device);
@@ -451,10 +460,12 @@ inline std::vector<VkPresentModeKHR> get_surface_available_present_modes(VkPhysi
     return presentModes;
 }
 
-inline std::optional<VkSurfaceFormatKHR> find_surface_format(const std::vector<VkSurfaceFormatKHR> &availableFormats,
-                                                             const VkFormat &targetFormat,
-                                                             const VkColorSpaceKHR &targetColorSpace)
+inline std::optional<VkSurfaceFormatKHR> find_adequate_surface_format(VkPhysicalDevice physicalDevice,
+                                                                      VkSurfaceKHR surface,
+                                                                      const VkFormat &targetFormat,
+                                                                      const VkColorSpaceKHR &targetColorSpace)
 {
+    auto availableFormats = get_surface_available_formats(physicalDevice, surface);
     for (const VkSurfaceFormatKHR &availableFormat : availableFormats)
     {
         if (availableFormat.format == targetFormat && availableFormat.colorSpace == targetColorSpace)
@@ -462,17 +473,7 @@ inline std::optional<VkSurfaceFormatKHR> find_surface_format(const std::vector<V
     }
     return std::optional<VkSurfaceFormatKHR>();
 }
-inline std::optional<VkPresentModeKHR> find_surface_present_mode(const std::vector<VkPresentModeKHR> &availableModes,
-                                                                 const VkPresentModeKHR &targetPresentMode)
-{
-    for (const VkPresentModeKHR &availableMode : availableModes)
-    {
-        if (availableMode == targetPresentMode)
-            return std::optional<VkPresentModeKHR>(availableMode);
-    }
-    return std::optional<VkPresentModeKHR>();
-}
-inline VkExtent2D find_extent(const VkSurfaceCapabilitiesKHR &capabilities, uint32_t width, uint32_t height)
+inline VkExtent2D find_adequate_extent(const VkSurfaceCapabilitiesKHR &capabilities, uint32_t width, uint32_t height)
 {
     if (capabilities.currentExtent.width != (std::numeric_limits<uint32_t>::max)())
     {
@@ -494,32 +495,27 @@ inline VkSwapchainKHR create_swap_chain(VkPhysicalDevice physicalDevice, VkDevic
                                         VkSurfaceFormatKHR surfaceFormat, uint32_t width, uint32_t height)
 {
     VkSurfaceCapabilitiesKHR capabilities = Surface::get_surface_capabilities(physicalDevice, surface);
-
-    std::vector<VkSurfaceFormatKHR> formats = Surface::get_surface_available_formats(physicalDevice, surface);
-
-    std::vector<VkPresentModeKHR> presentModes = Surface::get_surface_available_present_modes(physicalDevice, surface);
-    std::optional<VkPresentModeKHR> presentMode =
-        Surface::find_surface_present_mode(presentModes, VK_PRESENT_MODE_FIFO_KHR);
-
-    VkExtent2D extent = Surface::find_extent(Surface::get_surface_capabilities(physicalDevice, surface), width, height);
+    VkExtent2D extent = Surface::find_adequate_extent(capabilities, width, height);
 
     uint32_t imageCount = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && capabilities.maxImageCount < imageCount)
         imageCount = capabilities.maxImageCount;
 
-    VkSwapchainCreateInfoKHR createInfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                                           .surface = surface,
-                                           .minImageCount = imageCount,
-                                           .imageFormat = surfaceFormat.format,
-                                           .imageColorSpace = surfaceFormat.colorSpace,
-                                           .imageExtent = extent,
-                                           .imageArrayLayers = 1,
-                                           .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                           .preTransform = capabilities.currentTransform,
-                                           .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                                           .presentMode = presentMode.value(),
-                                           .clipped = VK_TRUE,
-                                           .oldSwapchain = VK_NULL_HANDLE};
+    VkSwapchainCreateInfoKHR createInfo = {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = surface,
+        .minImageCount = imageCount,
+        .imageFormat = surfaceFormat.format,
+        .imageColorSpace = surfaceFormat.colorSpace,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = capabilities.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+        .clipped = VK_TRUE,
+        .oldSwapchain = VK_NULL_HANDLE,
+    };
 
     std::optional<uint32_t> graphicsFamilyIndex =
         Device::Queue::find_queue_family_index(physicalDevice, VK_QUEUE_GRAPHICS_BIT);
@@ -572,40 +568,68 @@ inline std::vector<VkImage> get_swap_chain_images(VkDevice device, VkSwapchainKH
 
 namespace RenderPass
 {
-inline VkRenderPass create_render_pass(VkDevice device, VkFormat imageFormat)
+inline VkRenderPass create_render_pass(VkDevice device, VkFormat colorAttachmentFormat, VkFormat depthAttachmentFormat)
 {
-    VkAttachmentDescription colorAttachment = {.format = imageFormat,
-                                               .samples = VK_SAMPLE_COUNT_1_BIT,
-                                               // load : what to do with the already existing image on the framebuffer
-                                               .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                               // store : what to do with the newly rendered image on the framebuffer
-                                               .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                                               .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                                               .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                                               .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                                               .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR};
+    VkAttachmentDescription colorAttachment = {
+        .format = colorAttachmentFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        // load : what to do with the already existing image on the framebuffer
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        // store : what to do with the newly rendered image on the framebuffer
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
 
-    VkAttachmentReference colorAttachmentRef = {.attachment = 0, // colorAttachment is index 0
-                                                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference colorAttachmentRef = {
+        .attachment = 0, // colorAttachment is index 0
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
 
-    VkSubpassDescription subpass = {.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    .colorAttachmentCount = 1,
-                                    .pColorAttachments = &colorAttachmentRef};
+    VkAttachmentDescription depthAttachment = {
+        .format = depthAttachmentFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
 
-    VkSubpassDependency dependency = {.srcSubpass = VK_SUBPASS_EXTERNAL,
-                                      .dstSubpass = 0,
-                                      .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                      .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                      .srcAccessMask = 0,
-                                      .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT};
+    VkAttachmentReference depthAttachmentRef = {
+        .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
 
-    VkRenderPassCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-                                         .attachmentCount = 1,
-                                         .pAttachments = &colorAttachment,
-                                         .subpassCount = 1,
-                                         .pSubpasses = &subpass,
-                                         .dependencyCount = 1,
-                                         .pDependencies = &dependency};
+    VkSubpassDescription subpass = {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachmentRef,
+        .pDepthStencilAttachment = &depthAttachmentRef,
+    };
+
+    VkSubpassDependency dependency = {
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+    };
+
+    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+    VkRenderPassCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = static_cast<uint32_t>(attachments.size()),
+        .pAttachments = attachments.data(),
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = &dependency,
+    };
 
     VkRenderPass renderPass;
     VkResult res = vkCreateRenderPass(device, &createInfo, nullptr, &renderPass);
@@ -620,20 +644,24 @@ inline void destroy_render_pass(VkDevice device, VkRenderPass renderPass)
 }
 
 inline std::vector<VkFramebuffer> create_framebuffers(VkDevice device, VkRenderPass renderPass,
-                                                      std::vector<VkImageView> swapchainImageViews, VkExtent2D extent)
+                                                      std::vector<VkImageView> swapchainImageViews,
+                                                      VkImageView depthImageView, VkExtent2D extent)
 {
     std::vector<VkFramebuffer> framebuffers;
     framebuffers.resize(swapchainImageViews.size());
 
     for (size_t i = 0; i < swapchainImageViews.size(); ++i)
     {
-        VkFramebufferCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-                                              .renderPass = renderPass,
-                                              .attachmentCount = 1,
-                                              .pAttachments = &swapchainImageViews[i],
-                                              .width = extent.width,
-                                              .height = extent.height,
-                                              .layers = 1};
+        std::array<VkImageView, 2> attachments = {swapchainImageViews[i], depthImageView};
+        VkFramebufferCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = renderPass,
+            .attachmentCount = static_cast<uint32_t>(attachments.size()),
+            .pAttachments = attachments.data(),
+            .width = extent.width,
+            .height = extent.height,
+            .layers = 1,
+        };
 
         VkResult res = vkCreateFramebuffer(device, &createInfo, nullptr, &framebuffers[i]);
         if (res != VK_SUCCESS)
@@ -656,9 +684,11 @@ namespace Shader
 {
 inline VkShaderModule create_shader_module(VkDevice device, const std::vector<char> &code)
 {
-    VkShaderModuleCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                                           .codeSize = code.size(),
-                                           .pCode = reinterpret_cast<const uint32_t *>(code.data())};
+    VkShaderModuleCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = code.size(),
+        .pCode = reinterpret_cast<const uint32_t *>(code.data()),
+    };
 
     VkShaderModule module;
     VkResult res = vkCreateShaderModule(device, &createInfo, nullptr, &module);
@@ -695,11 +725,13 @@ inline void destroy_descriptor_set_layout(VkDevice device, VkDescriptorSetLayout
 
 inline VkPipelineLayout create_pipeline_layout(VkDevice device, const std::vector<VkDescriptorSetLayout> &setLayouts)
 {
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                                                           .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
-                                                           .pSetLayouts = setLayouts.data(),
-                                                           .pushConstantRangeCount = 0,
-                                                           .pPushConstantRanges = nullptr};
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+        .pSetLayouts = setLayouts.data(),
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr,
+    };
 
     VkPipelineLayout pipelineLayout;
     VkResult res = vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
@@ -773,18 +805,22 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
     VkShaderModule vsModule = Shader::create_shader_module(device, vs);
     VkShaderModule fsModule = Shader::create_shader_module(device, fs);
 
-    VkPipelineShaderStageCreateInfo vsStageCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                                                         .stage = VK_SHADER_STAGE_VERTEX_BIT,
-                                                         .module = vsModule,
-                                                         .pName = "main",
-                                                         // for shader constants values
-                                                         .pSpecializationInfo = nullptr};
+    VkPipelineShaderStageCreateInfo vsStageCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vsModule,
+        .pName = "main",
+        // for shader constants values
+        .pSpecializationInfo = nullptr,
+    };
 
-    VkPipelineShaderStageCreateInfo fsStageCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                                                         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                         .module = fsModule,
-                                                         .pName = "main",
-                                                         .pSpecializationInfo = nullptr};
+    VkPipelineShaderStageCreateInfo fsStageCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = fsModule,
+        .pName = "main",
+        .pSpecializationInfo = nullptr,
+    };
 
     VkPipelineShaderStageCreateInfo shaderStagesCreateInfo[] = {vsStageCreateInfo, fsStageCreateInfo};
 
@@ -793,7 +829,8 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
     VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
-        .pDynamicStates = dynamicStates.data()};
+        .pDynamicStates = dynamicStates.data(),
+    };
 
     // vertex (enabling the binding for the Vertex structure)
     auto binding = VertexDesc::get_vertex_input_binding_description();
@@ -803,26 +840,36 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &binding,
         .vertexAttributeDescriptionCount = static_cast<uint32_t>(attribs.size()),
-        .pVertexAttributeDescriptions = attribs.data()};
+        .pVertexAttributeDescriptions = attribs.data(),
+    };
 
     // draw mode
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        .primitiveRestartEnable = VK_FALSE};
+        .primitiveRestartEnable = VK_FALSE,
+    };
 
     // viewport
-    VkViewport viewport = {.x = 0.f,
-                           .y = 0.f,
-                           .width = static_cast<float>(extent.width),
-                           .height = static_cast<float>(extent.height),
-                           .minDepth = 0.f,
-                           .maxDepth = 1.f};
+    VkViewport viewport = {
+        .x = 0.f,
+        .y = 0.f,
+        .width = static_cast<float>(extent.width),
+        .height = static_cast<float>(extent.height),
+        .minDepth = 0.f,
+        .maxDepth = 1.f,
+    };
 
-    VkRect2D scissor = {.offset = {0, 0}, .extent = extent};
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = extent,
+    };
 
     VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, .viewportCount = 1, .scissorCount = 1};
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
 
     // rasterizer
     VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {
@@ -836,7 +883,8 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .depthBiasConstantFactor = 0.f,
         .depthBiasClamp = 0.f,
         .depthBiasSlopeFactor = 0.f,
-        .lineWidth = 1.f};
+        .lineWidth = 1.f,
+    };
 
     // multisampling, anti-aliasing
     VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = {
@@ -846,7 +894,21 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .minSampleShading = 1.f,
         .pSampleMask = nullptr,
         .alphaToCoverageEnable = VK_FALSE,
-        .alphaToOneEnable = VK_FALSE};
+        .alphaToOneEnable = VK_FALSE,
+    };
+
+    VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+    };
 
     // color blending
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {
@@ -858,7 +920,8 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
         .alphaBlendOp = VK_BLEND_OP_ADD,
         .colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    };
 
     VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
@@ -866,28 +929,31 @@ inline VkPipeline create_pipeline(VkDevice device, VkRenderPass renderPass, cons
         .logicOp = VK_LOGIC_OP_COPY,
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment,
-        .blendConstants = {0.f, 0.f, 0.f, 0.f}};
+        .blendConstants = {0.f, 0.f, 0.f, 0.f},
+    };
 
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                                                       // shader stage
-                                                       .stageCount = 2,
-                                                       .pStages = shaderStagesCreateInfo,
-                                                       // fixed function stage
-                                                       .pVertexInputState = &vertexInputCreateInfo,
-                                                       .pInputAssemblyState = &inputAssemblyCreateInfo,
-                                                       .pViewportState = &viewportStateCreateInfo,
-                                                       .pRasterizationState = &rasterizerCreateInfo,
-                                                       .pMultisampleState = &multisamplingCreateInfo,
-                                                       .pDepthStencilState = nullptr,
-                                                       .pColorBlendState = &colorBlendCreateInfo,
-                                                       .pDynamicState = &dynamicStateCreateInfo,
-                                                       // pipeline layout
-                                                       .layout = pipelineLayout,
-                                                       // render pass
-                                                       .renderPass = renderPass,
-                                                       .subpass = 0,
-                                                       .basePipelineHandle = VK_NULL_HANDLE,
-                                                       .basePipelineIndex = -1};
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        // shader stage
+        .stageCount = 2,
+        .pStages = shaderStagesCreateInfo,
+        // fixed function stage
+        .pVertexInputState = &vertexInputCreateInfo,
+        .pInputAssemblyState = &inputAssemblyCreateInfo,
+        .pViewportState = &viewportStateCreateInfo,
+        .pRasterizationState = &rasterizerCreateInfo,
+        .pMultisampleState = &multisamplingCreateInfo,
+        .pDepthStencilState = &depthStencilCreateInfo,
+        .pColorBlendState = &colorBlendCreateInfo,
+        .pDynamicState = &dynamicStateCreateInfo,
+        // pipeline layout
+        .layout = pipelineLayout,
+        // render pass
+        .renderPass = renderPass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = -1,
+    };
 
     VkPipeline pipeline;
     VkResult res = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pipeline);
@@ -932,10 +998,12 @@ inline void destroy_command_pool(VkDevice device, VkCommandPool commandPool)
 inline std::vector<VkCommandBuffer> allocate_command_buffers(VkDevice device, VkCommandPool commandPool,
                                                              uint32_t commandBufferCount)
 {
-    VkCommandBufferAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                                             .commandPool = commandPool,
-                                             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                                             .commandBufferCount = commandBufferCount};
+    VkCommandBufferAllocateInfo allocInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = commandBufferCount,
+    };
 
     std::vector<VkCommandBuffer> commandBuffer(commandBufferCount);
     VkResult res = vkAllocateCommandBuffers(device, &allocInfo, commandBuffer.data());
@@ -988,7 +1056,9 @@ namespace Parallel
 {
 inline VkSemaphore create_semaphore(VkDevice device)
 {
-    VkSemaphoreCreateInfo semaphoreCreateInfo = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
 
     VkSemaphore semaphore;
     VkResult res = vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &semaphore);
@@ -1004,8 +1074,10 @@ inline void destroy_semaphore(VkDevice device, VkSemaphore semaphore)
 
 inline VkFence create_fence(VkDevice device)
 {
-    VkFenceCreateInfo fenceCreateInfo = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-                                         .flags = VK_FENCE_CREATE_SIGNALED_BIT};
+    VkFenceCreateInfo fenceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
 
     VkFence fence;
     VkResult res = vkCreateFence(device, &fenceCreateInfo, nullptr, &fence);
@@ -1025,9 +1097,11 @@ namespace Memory
 inline VkDeviceMemory allocate_memory(VkDevice device, VkDeviceSize requiredSize, uint32_t memoryTypeIndex)
 {
     // VRAM heap
-    VkMemoryAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                                      .allocationSize = requiredSize,
-                                      .memoryTypeIndex = memoryTypeIndex};
+    VkMemoryAllocateInfo allocInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = requiredSize,
+        .memoryTypeIndex = memoryTypeIndex,
+    };
 
     VkDeviceMemory memory;
     VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &memory);
@@ -1075,11 +1149,13 @@ namespace Buffer
  */
 inline VkBuffer create_buffer(VkDevice device, size_t size, VkBufferUsageFlags usage)
 {
-    VkBufferCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                                     .flags = 0,
-                                     .size = size,
-                                     .usage = usage,
-                                     .sharingMode = VK_SHARING_MODE_EXCLUSIVE};
+    VkBufferCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .flags = 0,
+        .size = size,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
 
     VkBuffer buffer;
     VkResult res = vkCreateBuffer(device, &createInfo, nullptr, &buffer);
@@ -1246,7 +1322,7 @@ inline void transition_image_layout(VkDevice device, VkCommandPool commandPoolTr
 }
 
 inline void copy_buffer_to_image(VkDevice device, VkCommandPool commandPoolTransient, uint32_t width, uint32_t height,
-                          VkBuffer buffer, VkImage image, VkQueue queue)
+                                 VkBuffer buffer, VkImage image, VkQueue queue)
 {
     VkCommandBuffer commandBuffer = Command::command_buffer_begin_one_time_submit(device, commandPoolTransient);
 
@@ -1313,22 +1389,24 @@ inline std::pair<VkImage, VkDeviceMemory> create_image_texture_from_data(
 
 inline VkImageView create_image_view(VkDevice device, VkImage image, VkFormat imageFormat)
 {
-    VkImageViewCreateInfo createInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                                        .image = image,
-                                        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                                        .format = imageFormat,
-                                        .components =
-                                            {
-                                                .r = VK_COMPONENT_SWIZZLE_R,
-                                                .g = VK_COMPONENT_SWIZZLE_G,
-                                                .b = VK_COMPONENT_SWIZZLE_B,
-                                                .a = VK_COMPONENT_SWIZZLE_A,
-                                            },
-                                        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                             .baseMipLevel = 0,
-                                                             .levelCount = 1,
-                                                             .baseArrayLayer = 0,
-                                                             .layerCount = 1}};
+    VkImageViewCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = imageFormat,
+        .components =
+            {
+                .r = VK_COMPONENT_SWIZZLE_R,
+                .g = VK_COMPONENT_SWIZZLE_G,
+                .b = VK_COMPONENT_SWIZZLE_B,
+                .a = VK_COMPONENT_SWIZZLE_A,
+            },
+        .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                             .baseMipLevel = 0,
+                             .levelCount = 1,
+                             .baseArrayLayer = 0,
+                             .layerCount = 1},
+    };
 
     VkImageView imageView;
     VkResult res = vkCreateImageView(device, &createInfo, nullptr, &imageView);
@@ -1411,25 +1489,38 @@ inline void record_back_buffer_begin_render_pass(VkCommandBuffer commandBuffer, 
         return;
     }
 
-    VkClearValue clearColor = {.color = {0.2f, 0.2f, 0.2f, 1.f}};
-    VkRenderPassBeginInfo renderPassBeginInfo = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-                                                 .renderPass = renderPass,
-                                                 .framebuffer = framebuffer,
-                                                 .renderArea = {.offset = {0, 0}, .extent = extent},
-                                                 .clearValueCount = 1,
-                                                 .pClearValues = &clearColor};
+    VkClearValue clearColor = {
+        .color = {0.2f, 0.2f, 0.2f, 1.f},
+    };
+    VkClearValue clearDepth = {
+        .depthStencil = {1.f, 0},
+    };
+    std::array<VkClearValue, 2> clearValues = {clearColor, clearDepth};
+    VkRenderPassBeginInfo renderPassBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = renderPass,
+        .framebuffer = framebuffer,
+        .renderArea = {.offset = {0, 0}, .extent = extent},
+        .clearValueCount = static_cast<uint32_t>(clearValues.size()),
+        .pClearValues = clearValues.data(),
+    };
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    VkViewport viewport = {.x = 0.f,
-                           .y = 0.f,
-                           .width = static_cast<float>(extent.width),
-                           .height = static_cast<float>(extent.height),
-                           .minDepth = 0.f,
-                           .maxDepth = 1.f};
+    VkViewport viewport = {
+        .x = 0.f,
+        .y = 0.f,
+        .width = static_cast<float>(extent.width),
+        .height = static_cast<float>(extent.height),
+        .minDepth = 0.f,
+        .maxDepth = 1.f,
+    };
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-    VkRect2D scissor = {.offset = {0, 0}, .extent = extent};
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = extent,
+    };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
 inline void record_back_buffer_descriptor_sets_commands(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
@@ -1470,14 +1561,16 @@ inline void submit_back_buffer(VkQueue graphicsQueue, VkCommandBuffer commandBuf
     VkSemaphore waitSemaphores[] = {acquireSemaphore};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSemaphore signalSemaphores[] = {renderSemaphore};
-    VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                               .waitSemaphoreCount = 1,
-                               .pWaitSemaphores = waitSemaphores,
-                               .pWaitDstStageMask = waitStages,
-                               .commandBufferCount = 1,
-                               .pCommandBuffers = &commandBuffer,
-                               .signalSemaphoreCount = 1,
-                               .pSignalSemaphores = signalSemaphores};
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = waitSemaphores,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signalSemaphores,
+    };
 
     VkResult res = vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence);
     if (res != VK_SUCCESS)
@@ -1489,13 +1582,15 @@ inline void present_back_buffer(VkQueue presentQueue, VkSwapchainKHR swapchain, 
 {
     VkSwapchainKHR swapchains[] = {swapchain};
     VkSemaphore waitSemaphores[] = {renderSemaphore};
-    VkPresentInfoKHR presentInfo = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                                    .waitSemaphoreCount = 1,
-                                    .pWaitSemaphores = waitSemaphores,
-                                    .swapchainCount = 1,
-                                    .pSwapchains = swapchains,
-                                    .pImageIndices = &imageIndex,
-                                    .pResults = nullptr};
+    VkPresentInfoKHR presentInfo = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = waitSemaphores,
+        .swapchainCount = 1,
+        .pSwapchains = swapchains,
+        .pImageIndices = &imageIndex,
+        .pResults = nullptr,
+    };
 
     VkResult res = vkQueuePresentKHR(presentQueue, &presentInfo);
     if (res != VK_SUCCESS)

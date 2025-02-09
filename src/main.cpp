@@ -58,10 +58,8 @@ int main()
     VkQueue graphicsQueue = RHI::Device::Queue::get_device_queue(device, graphicsFamilyIndex.value(), 0);
     VkQueue presentQueue = RHI::Device::Queue::get_device_queue(device, presentFamilyIndex.value(), 0);
 
-    std::vector<VkSurfaceFormatKHR> formats =
-        RHI::Presentation::Surface::get_surface_available_formats(physicalDevice, surface);
-    std::optional<VkSurfaceFormatKHR> surfaceFormat = RHI::Presentation::Surface::find_surface_format(
-        formats, VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
+    std::optional<VkSurfaceFormatKHR> surfaceFormat = RHI::Presentation::Surface::find_adequate_surface_format(
+        physicalDevice, surface, VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
     VkSwapchainKHR swapchain =
         RHI::Presentation::SwapChain::create_swap_chain(physicalDevice, device, surface, surfaceFormat.value(),
                                                         static_cast<uint32_t>(width), static_cast<uint32_t>(height));
@@ -73,12 +71,18 @@ int main()
             RHI::Memory::Image::create_image_view(device, swapchainImages[i], surfaceFormat->format);
     }
     uint32_t frameInFlightCount = static_cast<uint32_t>(swapchainImages.size());
+    VkFormat depthImageFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+    auto swapchainDepthImage = RHI::Memory::Image::create_allocated_image(
+        device, physicalDevice, width, height, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageFormat,
+        VK_IMAGE_TILING_OPTIMAL, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VkImageView swapchainDepthImageView =
+        RHI::Memory::Image::create_image_view(device, swapchainDepthImage.first, depthImageFormat);
 
-    VkRenderPass renderPass = RHI::RenderPass::create_render_pass(device, surfaceFormat->format);
+    VkRenderPass renderPass = RHI::RenderPass::create_render_pass(device, surfaceFormat->format, depthImageFormat);
 
     VkExtent2D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
     std::vector<VkFramebuffer> framebuffers =
-        RHI::RenderPass::create_framebuffers(device, renderPass, swapchainImageViews, extent);
+        RHI::RenderPass::create_framebuffers(device, renderPass, swapchainImageViews, swapchainDepthImageView, extent);
 
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings =
         UniformDesc::get_uniform_descriptor_set_layout_bindings();
@@ -243,6 +247,10 @@ int main()
     RHI::RenderPass::destroy_framebuffers(device, framebuffers);
 
     RHI::RenderPass::destroy_render_pass(device, renderPass);
+
+    RHI::Memory::Image::destroy_image_view(device, swapchainDepthImageView);
+    RHI::Memory::free_memory(device, swapchainDepthImage.second);
+    RHI::Memory::Image::destroy_image(device, swapchainDepthImage.first);
 
     for (int i = 0; i < swapchainImageViews.size(); ++i)
     {
